@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Private security report
-    url: https://github.com/kaitranntt/ccs/security/advisories/new
-    about: Report suspected vulnerabilities privately. Do not open public issues for security reports.
-  - name: Documentation hub
-    url: https://docs.ccs.kaitran.ca
-    about: Installation, provider guides, CLI reference, and troubleshooting.

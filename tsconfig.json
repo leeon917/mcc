@@ -1,62 +1,33 @@
 {
   "compilerOptions": {
-    // Output
     "outDir": "./dist",
     "rootDir": "./src",
     "sourceMap": true,
-
-    // Module system
     "module": "commonjs",
     "target": "ES2020",
     "lib": ["ES2020"],
-
-    // Module resolution
     "moduleResolution": "node",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-
-    // Type checking (start strict)
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
-    "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-
-    // Additional checks
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-
-    // Output options
     "declaration": true,
     "declarationMap": true,
     "removeComments": false,
-    "preserveConstEnums": true,
-
-    // Interop
     "forceConsistentCasingInFileNames": true,
-
-    // Performance
     "incremental": true,
-
-    // Runtime type declarations
-    "types": ["node", "bun"]
+    "types": ["node"]
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "tests",
-    "lib",
-    "scripts",
-    "ui",
-    "src/**/__tests__/**"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests"]
 }

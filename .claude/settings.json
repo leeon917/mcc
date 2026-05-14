@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [],
+    "_comment": "项目级会覆盖/叠加全局：通常在这里补充项目特有的 deny/ask 规则。"
+  }
+}

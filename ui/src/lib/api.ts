@@ -1,19 +1,14 @@
 const API_BASE = '/api';
 
-export interface AccountInfo {
+export interface Profile {
   name: string;
-  provider: string;
-  defaultModel?: string;
+  baseUrl: string;
+  model: string;
+  opusModel?: string;
+  sonnetModel?: string;
+  haikuModel?: string;
   createdAt: string;
   lastUsedAt?: string;
-}
-
-export interface ModelPreset {
-  id: string;
-  name: string;
-  description: string;
-  defaultModel: string;
-  baseUrl: string;
 }
 
 export interface McpServer {
@@ -23,35 +18,29 @@ export interface McpServer {
   enabled: boolean;
 }
 
-export async function getAccounts(): Promise<AccountInfo[]> {
-  const res = await fetch(`${API_BASE}/accounts`);
-  if (!res.ok) throw new Error('Failed to fetch accounts');
+export async function getProfiles(): Promise<Profile[]> {
+  const res = await fetch(`${API_BASE}/profiles`);
+  if (!res.ok) throw new Error('Failed to fetch profiles');
   return res.json();
 }
 
-export async function addAccount(name: string, provider: string, apiKey: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/accounts`, {
+export async function addProfile(profile: Omit<Profile, 'createdAt'> & { apiKey: string }): Promise<void> {
+  const res = await fetch(`${API_BASE}/profiles`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, provider, apiKey }),
+    body: JSON.stringify(profile),
   });
-  if (!res.ok) throw new Error('Failed to add account');
+  if (!res.ok) throw new Error('Failed to add profile');
 }
 
-export async function deleteAccount(name: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/accounts/${name}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete account');
+export async function deleteProfile(name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/profiles/${name}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete profile');
 }
 
-export async function setDefaultAccount(name: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/accounts/${name}/default`, { method: 'PUT' });
-  if (!res.ok) throw new Error('Failed to set default account');
-}
-
-export async function getModels(): Promise<ModelPreset[]> {
-  const res = await fetch(`${API_BASE}/models`);
-  if (!res.ok) throw new Error('Failed to fetch models');
-  return res.json();
+export async function setDefaultProfile(name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/profiles/${name}/default`, { method: 'PUT' });
+  if (!res.ok) throw new Error('Failed to set default profile');
 }
 
 export async function getMcpServers(): Promise<McpServer[]> {
@@ -67,7 +56,7 @@ export async function toggleMcp(name: string, enabled: boolean): Promise<void> {
   if (!res.ok) throw new Error('Failed to toggle MCP server');
 }
 
-export async function getStatus(): Promise<{ currentAccount?: string; currentModel?: string }> {
+export async function getStatus(): Promise<{ currentProfile?: string }> {
   const res = await fetch(`${API_BASE}/status`);
   if (!res.ok) throw new Error('Failed to fetch status');
   return res.json();

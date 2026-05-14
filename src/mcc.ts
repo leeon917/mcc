@@ -1,30 +1,25 @@
 /**
  * MCC - My Cloud Code
  *
- * Simplified CLI for multi-provider account switching.
+ * Simplified CLI for multi-provider profile switching.
  * No OAuth, no local proxy - uses provider's direct API.
  */
 
 import { spawn } from 'child_process';
 import * as path from 'path';
 import {
-  listAccounts,
-  getAccount,
-  getAccountApiKey,
-  saveAccount,
-  deleteAccount,
-  setDefaultAccount,
-  getDefaultAccount,
-  hasAccount,
-  type AccountInfo,
+  listProfiles,
+  getProfile,
+  getProfileApiKey,
+  saveProfile,
+  deleteProfile,
+  setDefaultProfile,
+  getDefaultProfile,
+  hasProfile,
+  type Profile,
 } from './accounts/store';
 import { MCCInstanceManager } from './accounts/instance-manager';
-import {
-  getPresetById,
-  buildDirectApiEnv,
-  isValidMccPreset,
-  listMccPresets,
-} from './core/model-router';
+import { buildProfileEnv } from './core/model-router';
 import {
   installBuiltinServers,
   syncInstanceMcpServers,
@@ -37,176 +32,151 @@ function showHelp(): void {
   console.log(`
 MCC - My Cloud Code
 
-Usage: mcc <command> [options]
-
-Commands:
-  use <account>          Switch to account and run Claude Code
-  account add <name>    Add a new account
-  account list          List all accounts
-  account remove <name> Remove an account
-  account default [name] Get or set default account
-  model list            List available provider presets
-  mcp list              List MCP servers
-  dashboard             Open the web dashboard
-  help                  Show this help
+Usage: mcc <profile> [args...]   Launch Claude Code with a profile
+       mcc profile add <name>      Add a new profile
+       mcc profile list            List all profiles
+       mcc profile remove <name>   Remove a profile
+       mcc profile default [name] Get or set default profile
+       mcc dashboard               Open the web dashboard
+       mcc help                   Show this help
 
 Examples:
-  mcc account add prod --provider deepseek --api-key sk-xxxx
-  mcc use prod
-  mcc model list
+  mcc profile add prod --base-url https://api.deepseek.com/anthropic --api-key sk-xxxx --model deepseek-chat
+  mcc prod
   mcc dashboard
 `.trim());
 }
 
-async function cmdUse(args: string[]): Promise<void> {
-  const accountName = args[0];
-  if (!accountName) {
-    console.error('[!] Usage: mcc use <account>');
+async function cmdLaunch(args: string[]): Promise<void> {
+  const profileName = args[0];
+  if (!profileName) {
+    console.error('[!] Usage: mcc <profile> [args...]');
     process.exit(1);
   }
 
-  const account = getAccount(accountName);
-  if (!account) {
-    console.error(`[!] Account not found: ${accountName}`);
-    console.error('[i] Available accounts:');
-    for (const a of listAccounts()) {
-      console.error(`  - ${a.name} (${a.provider})`);
+  const profile = getProfile(profileName);
+  if (!profile) {
+    console.error(`[!] Profile not found: ${profileName}`);
+    console.error('[i] Available profiles:');
+    for (const p of listProfiles()) {
+      console.error(`  - ${p.name} (baseUrl: ${p.baseUrl})`);
     }
     process.exit(1);
   }
 
-  const apiKey = getAccountApiKey(accountName);
+  const apiKey = getProfileApiKey(profileName);
   if (!apiKey) {
-    console.error(`[!] No API key found for account: ${accountName}`);
+    console.error(`[!] No API key found for profile: ${profileName}`);
     process.exit(1);
   }
 
-  const preset = getPresetById(account.provider);
-  if (!preset) {
-    console.error(`[!] Unknown provider: ${account.provider}`);
-    process.exit(1);
-  }
+  const instancePath = await instanceMgr.ensureInstance(profileName);
+  syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name));
 
-  const env = buildDirectApiEnv(preset, apiKey, account.defaultModel);
-  const instancePath = await instanceMgr.ensureInstance(accountName);
-  syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((server) => server.name));
-  const fullEnv = { ...env, CLAUDE_CONFIG_DIR: instancePath };
+  const env = buildProfileEnv(profile, apiKey, instancePath);
 
   const remainingArgs = args.slice(1);
   const child = spawn('claude', remainingArgs, {
-    env: { ...process.env, ...fullEnv },
+    env: { ...process.env, ...env },
     stdio: 'inherit',
   });
 
   child.on('exit', (code) => process.exit(code ?? 0));
 }
 
-async function cmdAccountAdd(args: string[]): Promise<void> {
+async function cmdProfileAdd(args: string[]): Promise<void> {
   const name = args[0];
   if (!name) {
-    console.error('[!] Usage: mcc account add <name> --provider <provider> --api-key <key>');
+    console.error('[!] Usage: mcc profile add <name> --base-url <url> --api-key <key> --model <model> [--opus-model <m>] [--sonnet-model <m>] [--haiku-model <m>]');
     process.exit(1);
   }
 
-  const providerIndex = args.indexOf('--provider');
-  const apiKeyIndex = args.indexOf('--api-key');
-  if (providerIndex === -1 || apiKeyIndex === -1) {
-    console.error('[!] Usage: mcc account add <name> --provider <provider> --api-key <key>');
+  const getArg = (flag: string) => {
+    const idx = args.indexOf(flag);
+    return idx !== -1 ? args[idx + 1] : undefined;
+  };
+
+  const baseUrl = getArg('--base-url');
+  const apiKey = getArg('--api-key');
+  const model = getArg('--model') ?? 'claude-sonnet-4-6';
+
+  if (!baseUrl || !apiKey) {
+    console.error('[!] --base-url and --api-key are required');
     process.exit(1);
   }
 
-  const provider = args[providerIndex + 1];
-  const apiKey = args[apiKeyIndex + 1];
-
-  if (!isValidMccPreset(provider)) {
-    console.error(`[!] Unknown provider: ${provider}`);
-    console.error('[i] Available providers:');
-    for (const p of listMccPresets()) {
-      console.error(`  - ${p.id}: ${p.name}`);
-    }
-    process.exit(1);
-  }
-
-  const info: AccountInfo = {
+  const profile: Profile = {
     name,
-    provider,
+    baseUrl,
+    model,
+    opusModel: getArg('--opus-model'),
+    sonnetModel: getArg('--sonnet-model'),
+    haikuModel: getArg('--haiku-model'),
     createdAt: new Date().toISOString(),
   };
 
-  saveAccount(info, apiKey);
+  saveProfile(profile, apiKey);
   await instanceMgr.ensureInstance(name);
   const instancePath = instanceMgr.getInstancePath(name);
-  syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((server) => server.name));
+  syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name));
 
-  console.log(`[OK] Account created: ${name} (${provider})`);
+  console.log(`[OK] Profile created: ${name}`);
+  console.log(`    Base URL: ${baseUrl}`);
+  console.log(`    Model: ${model}`);
+  if (profile.opusModel) console.log(`    Opus: ${profile.opusModel}`);
+  if (profile.sonnetModel) console.log(`    Sonnet: ${profile.sonnetModel}`);
+  if (profile.haikuModel) console.log(`    Haiku: ${profile.haikuModel}`);
 }
 
-async function cmdAccountList(): Promise<void> {
-  const accounts = listAccounts();
-  const defaultAccount = getDefaultAccount();
+async function cmdProfileList(): Promise<void> {
+  const profiles = listProfiles();
+  const defaultProfile = getDefaultProfile();
 
-  if (accounts.length === 0) {
-    console.log('[i] No accounts. Run: mcc account add <name> --provider <provider> --api-key <key>');
+  if (profiles.length === 0) {
+    console.log('[i] No profiles. Run: mcc profile add <name> --base-url <url> --api-key <key> --model <model>');
     return;
   }
 
-  console.log('Accounts:');
-  for (const acc of accounts) {
-    const marker = acc.name === defaultAccount ? ' (default)' : '';
-    console.log(`  - ${acc.name} [${acc.provider}]${marker}`);
+  console.log('Profiles:');
+  for (const p of profiles) {
+    const marker = p.name === defaultProfile ? ' (default)' : '';
+    console.log(`  ${p.name}${marker}`);
+    console.log(`    Base URL: ${p.baseUrl}`);
+    console.log(`    Model: ${p.model}`);
+    if (p.opusModel) console.log(`    Opus: ${p.opusModel}`);
+    if (p.sonnetModel) console.log(`    Sonnet: ${p.sonnetModel}`);
+    if (p.haikuModel) console.log(`    Haiku: ${p.haikuModel}`);
+    console.log();
   }
 }
 
-async function cmdAccountRemove(args: string[]): Promise<void> {
+async function cmdProfileRemove(args: string[]): Promise<void> {
   const name = args[0];
   if (!name) {
-    console.error('[!] Usage: mcc account remove <name>');
+    console.error('[!] Usage: mcc profile remove <name>');
     process.exit(1);
   }
-  if (!hasAccount(name)) {
-    console.error(`[!] Account not found: ${name}`);
+  if (!hasProfile(name)) {
+    console.error(`[!] Profile not found: ${name}`);
     process.exit(1);
   }
-  deleteAccount(name);
+  deleteProfile(name);
   await instanceMgr.deleteInstance(name);
-  console.log(`[OK] Account removed: ${name}`);
+  console.log(`[OK] Profile removed: ${name}`);
 }
 
-async function cmdAccountDefault(args: string[]): Promise<void> {
+async function cmdProfileDefault(args: string[]): Promise<void> {
   const name = args[0];
   if (name) {
-    if (!hasAccount(name)) {
-      console.error(`[!] Account not found: ${name}`);
+    if (!hasProfile(name)) {
+      console.error(`[!] Profile not found: ${name}`);
       process.exit(1);
     }
-    setDefaultAccount(name);
-    console.log(`[OK] Default account set: ${name}`);
+    setDefaultProfile(name);
+    console.log(`[OK] Default profile set: ${name}`);
   } else {
-    const defaultAcc = getDefaultAccount();
-    console.log(defaultAcc ? `Default account: ${defaultAcc}` : '[i] No default account set');
-  }
-}
-
-async function cmdModelList(): Promise<void> {
-  const presets = listMccPresets();
-  console.log('Available provider presets:');
-  for (const p of presets) {
-    console.log(`  ${p.id}`);
-    console.log(`    Name: ${p.name}`);
-    console.log(`    Default model: ${p.defaultModel}`);
-    console.log(`    Base URL: ${p.baseUrl || '(Anthropic direct)'}`);
-    console.log(`    Description: ${p.description}`);
-    console.log();
-  }
-}
-
-async function cmdMcpList(): Promise<void> {
-  console.log('Built-in MCP servers:');
-  for (const server of BUILTIN_MCP_SERVERS) {
-    console.log(`  ${server.name}`);
-    console.log(`    Display: ${server.displayName}`);
-    console.log(`    Description: ${server.description}`);
-    console.log();
+    const defaultProf = getDefaultProfile();
+    console.log(defaultProf ? `Default profile: ${defaultProf}` : '[i] No default profile set');
   }
 }
 
@@ -223,41 +193,20 @@ async function main(): Promise<void> {
   const args = rawArgs.slice(1);
 
   switch (command) {
-    case 'use':
-      await cmdUse(args);
-      break;
-    case 'account':
+    // mcc <profile> - launch with profile
+    case 'profile':
       switch (args[0]) {
-        case 'add': await cmdAccountAdd(args.slice(1)); break;
-        case 'list': await cmdAccountList(); break;
-        case 'remove': await cmdAccountRemove(args.slice(1)); break;
-        case 'default': await cmdAccountDefault(args.slice(1)); break;
+        case 'add': await cmdProfileAdd(args.slice(1)); break;
+        case 'list': await cmdProfileList(); break;
+        case 'remove': await cmdProfileRemove(args.slice(1)); break;
+        case 'default': await cmdProfileDefault(args.slice(1)); break;
         default:
-          console.error(`[!] Unknown account command: ${args[0]}`);
+          console.error(`[!] Unknown profile command: ${args[0]}`);
           showHelp();
           process.exit(1);
       }
       break;
-    case 'model':
-      if (args[0] === 'list') {
-        await cmdModelList();
-      } else {
-        console.error(`[!] Unknown model command: ${args[0]}`);
-        showHelp();
-        process.exit(1);
-      }
-      break;
-    case 'mcp':
-      if (args[0] === 'list') {
-        await cmdMcpList();
-      } else {
-        console.error(`[!] Unknown mcp command: ${args[0]}`);
-        showHelp();
-        process.exit(1);
-      }
-      break;
     case 'dashboard': {
-      const { spawn } = await import('child_process');
       spawn('node', [path.join(__dirname, 'dashboard-server.js')], {
         env: process.env,
         stdio: 'inherit',
@@ -265,9 +214,8 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.error(`[!] Unknown command: ${command}`);
-      showHelp();
-      process.exit(1);
+      // Treat as profile launch
+      await cmdLaunch(rawArgs);
   }
 }
 

@@ -7,6 +7,7 @@ export interface Profile {
   opusModel?: string;
   sonnetModel?: string;
   haikuModel?: string;
+  protocol?: 'anthropic' | 'openai';
   createdAt: string;
   lastUsedAt?: string;
 }

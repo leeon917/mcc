@@ -31,6 +31,7 @@ export interface Profile {
   opusModel?: string;       // Tier 1 (Opus)
   sonnetModel?: string;     // Tier 2 (Sonnet)
   haikuModel?: string;      // Tier 3 (Haiku / small-fast)
+  protocol?: 'anthropic' | 'openai';  // 'anthropic' = direct, 'openai' = needs translation proxy
   createdAt: string;
   lastUsedAt?: string;
 }

@@ -29,6 +29,7 @@ export default function App() {
   const [newBaseUrl, setNewBaseUrl] = useState('');
   const [newApiKey, setNewApiKey] = useState('');
   const [newModel, setNewModel] = useState('');
+  const [newProtocol, setNewProtocol] = useState<'anthropic' | 'openai'>('anthropic');
   const [newOpus, setNewOpus] = useState('');
   const [newSonnet, setNewSonnet] = useState('');
   const [newHaiku, setNewHaiku] = useState('');
@@ -61,11 +62,13 @@ export default function App() {
         baseUrl: newBaseUrl,
         apiKey: newApiKey,
         model: newModel,
+        protocol: newProtocol,
         opusModel: newOpus || undefined,
         sonnetModel: newSonnet || undefined,
         haikuModel: newHaiku || undefined,
       });
       setNewName(''); setNewBaseUrl(''); setNewApiKey(''); setNewModel('');
+      setNewProtocol('anthropic');
       setNewOpus(''); setNewSonnet(''); setNewHaiku('');
       await loadAll();
     } catch (e) {
@@ -142,6 +145,7 @@ export default function App() {
                           </div>
                           <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span>Default: {p.model}</span>
+                            <span>Protocol: {p.protocol || 'anthropic'}</span>
                             {p.opusModel && <span>Opus: {p.opusModel}</span>}
                             {p.sonnetModel && <span>Sonnet: {p.sonnetModel}</span>}
                             {p.haikuModel && <span>Haiku: {p.haikuModel}</span>}
@@ -174,6 +178,18 @@ export default function App() {
                   <div className="space-y-2">
                     <Label htmlFor="model">Default Model</Label>
                     <Input id="model" placeholder="e.g. deepseek-chat" value={newModel} onChange={(e) => setNewModel(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="protocol">Protocol</Label>
+                    <select
+                      id="protocol"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={newProtocol}
+                      onChange={(e) => setNewProtocol(e.target.value as 'anthropic' | 'openai')}
+                    >
+                      <option value="anthropic">Anthropic (direct)</option>
+                      <option value="openai">OpenAI-compatible (translation proxy)</option>
+                    </select>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-2">

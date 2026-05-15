@@ -25,6 +25,7 @@ import {
   syncInstanceMcpServers,
 } from './mcp/installer';
 import { BUILTIN_MCP_SERVERS } from './mcp/registry';
+import { startProxy } from './proxy/proxy-daemon';
 
 const instanceMgr = new MCCInstanceManager();
 
@@ -42,6 +43,7 @@ Usage: mcc <profile> [args...]   Launch Claude Code with a profile
 
 Examples:
   mcc profile add prod --base-url https://api.deepseek.com/anthropic --api-key sk-xxxx --model deepseek-chat
+  mcc profile add minimax --base-url https://api.minimax.com --api-key sk-xxxx --model MiniMax-Text-01 --protocol openai
   mcc prod
   mcc dashboard
 `.trim());
@@ -75,6 +77,19 @@ async function cmdLaunch(args: string[]): Promise<void> {
 
   const env = buildProfileEnv(profile, apiKey, instancePath);
 
+  // Start translation proxy for OpenAI-compatible profiles
+  if (profile.protocol === 'openai') {
+    try {
+      const proxyInfo = await startProxy(profileName, profile.baseUrl, apiKey, profile.model);
+      env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyInfo.port}`;
+      env.ANTHROPIC_AUTH_TOKEN = proxyInfo.authToken;
+      console.log(`[i] Translation proxy started on port ${proxyInfo.port}`);
+    } catch (e) {
+      console.error(`[!] Failed to start translation proxy: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+
   const remainingArgs = args.slice(1);
   const child = spawn('claude', remainingArgs, {
     env: { ...process.env, ...env },
@@ -87,7 +102,7 @@ async function cmdLaunch(args: string[]): Promise<void> {
 async function cmdProfileAdd(args: string[]): Promise<void> {
   const name = args[0];
   if (!name) {
-    console.error('[!] Usage: mcc profile add <name> --base-url <url> --api-key <key> --model <model> [--opus-model <m>] [--sonnet-model <m>] [--haiku-model <m>]');
+    console.error('[!] Usage: mcc profile add <name> --base-url <url> --api-key <key> --model <model> [--protocol anthropic|openai] [--opus-model <m>] [--sonnet-model <m>] [--haiku-model <m>]');
     process.exit(1);
   }
 
@@ -99,9 +114,15 @@ async function cmdProfileAdd(args: string[]): Promise<void> {
   const baseUrl = getArg('--base-url');
   const apiKey = getArg('--api-key');
   const model = getArg('--model') ?? 'claude-sonnet-4-6';
+  const protocol = (getArg('--protocol') as 'anthropic' | 'openai') ?? 'anthropic';
 
   if (!baseUrl || !apiKey) {
     console.error('[!] --base-url and --api-key are required');
+    process.exit(1);
+  }
+
+  if (protocol !== 'anthropic' && protocol !== 'openai') {
+    console.error('[!] --protocol must be "anthropic" or "openai"');
     process.exit(1);
   }
 
@@ -112,6 +133,7 @@ async function cmdProfileAdd(args: string[]): Promise<void> {
     opusModel: getArg('--opus-model'),
     sonnetModel: getArg('--sonnet-model'),
     haikuModel: getArg('--haiku-model'),
+    protocol,
     createdAt: new Date().toISOString(),
   };
 
@@ -123,6 +145,7 @@ async function cmdProfileAdd(args: string[]): Promise<void> {
   console.log(`[OK] Profile created: ${name}`);
   console.log(`    Base URL: ${baseUrl}`);
   console.log(`    Model: ${model}`);
+  console.log(`    Protocol: ${protocol}`);
   if (profile.opusModel) console.log(`    Opus: ${profile.opusModel}`);
   if (profile.sonnetModel) console.log(`    Sonnet: ${profile.sonnetModel}`);
   if (profile.haikuModel) console.log(`    Haiku: ${profile.haikuModel}`);
@@ -143,6 +166,7 @@ async function cmdProfileList(): Promise<void> {
     console.log(`  ${p.name}${marker}`);
     console.log(`    Base URL: ${p.baseUrl}`);
     console.log(`    Model: ${p.model}`);
+    console.log(`    Protocol: ${p.protocol || 'anthropic'}`);
     if (p.opusModel) console.log(`    Opus: ${p.opusModel}`);
     if (p.sonnetModel) console.log(`    Sonnet: ${p.sonnetModel}`);
     if (p.haikuModel) console.log(`    Haiku: ${p.haikuModel}`);

@@ -77,7 +77,7 @@ async function main() {
   // POST /api/profiles
   app.post('/api/profiles', async (req, res) => {
     try {
-      const { name, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel } = req.body as {
+      const { name, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol } = req.body as {
         name: string;
         baseUrl: string;
         apiKey: string;
@@ -85,12 +85,13 @@ async function main() {
         opusModel?: string;
         sonnetModel?: string;
         haikuModel?: string;
+        protocol?: 'anthropic' | 'openai';
       };
       if (!name || !baseUrl || !apiKey || !model) {
         res.status(400).json({ error: 'Missing required fields' });
         return;
       }
-      const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, createdAt: new Date().toISOString() };
+      const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, protocol: protocol || 'anthropic', createdAt: new Date().toISOString() };
       await saveProfile(profile, apiKey);
       res.json({ ok: true });
     } catch (e) {

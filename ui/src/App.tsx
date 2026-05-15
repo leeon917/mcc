@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   getProfiles,
   addProfile,
+  updateProfile,
   deleteProfile,
   setDefaultProfile,
   getMcpServers,
@@ -20,6 +21,7 @@ import {
   getExternalMcpServers,
   addExternalMcpServer,
   removeExternalMcpServer,
+  ping,
   type Profile,
   type McpServer,
   type McpConfig,
@@ -34,6 +36,7 @@ export default function App() {
   const [allMcpServers, setAllMcpServers] = useState<AllMcpServer[]>([]);
   const [externalMcpServers, setExternalMcpServers] = useState<ExternalMcpServer[]>([]);
   const [currentProfile, setCurrentProfile] = useState<string>('');
+  const [connected, setConnected] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -54,6 +57,7 @@ export default function App() {
   const [newOpus, setNewOpus] = useState('');
   const [newSonnet, setNewSonnet] = useState('');
   const [newHaiku, setNewHaiku] = useState('');
+  const [editingProfile, setEditingProfile] = useState<string | null>(null);
 
   // External MCP form state
   const [showAddExternal, setShowAddExternal] = useState(false);
@@ -94,25 +98,78 @@ export default function App() {
 
   useEffect(() => { loadAll(); }, []);
 
+  // Poll connection status every 5s
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const ok = await ping();
+      if (!cancelled) setConnected(ok);
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  function startEditProfile(p: Profile) {
+    setEditingProfile(p.name);
+    setNewName(p.name);
+    setNewBaseUrl(p.baseUrl);
+    setNewApiKey('');
+    setNewModel(p.model);
+    setNewProtocol(p.protocol || 'anthropic');
+    setNewOpus(p.opusModel || '');
+    setNewSonnet(p.sonnetModel || '');
+    setNewHaiku(p.haikuModel || '');
+  }
+
+  function cancelEdit() {
+    setEditingProfile(null);
+    setNewName(''); setNewBaseUrl(''); setNewApiKey(''); setNewModel('');
+    setNewProtocol('anthropic');
+    setNewOpus(''); setNewSonnet(''); setNewHaiku('');
+  }
+
   async function handleAddProfile() {
-    if (!newName || !newBaseUrl || !newApiKey || !newModel) return;
-    try {
-      await addProfile({
-        name: newName,
-        baseUrl: newBaseUrl,
-        apiKey: newApiKey,
-        model: newModel,
-        protocol: newProtocol,
-        opusModel: newOpus || undefined,
-        sonnetModel: newSonnet || undefined,
-        haikuModel: newHaiku || undefined,
-      });
-      setNewName(''); setNewBaseUrl(''); setNewApiKey(''); setNewModel('');
-      setNewProtocol('anthropic');
-      setNewOpus(''); setNewSonnet(''); setNewHaiku('');
-      await loadAll();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add profile');
+    if (!newName || !newBaseUrl || !newModel) return;
+    if (editingProfile) {
+      // Update
+      if (!newBaseUrl || !newModel) return;
+      try {
+        await updateProfile(editingProfile, {
+          baseUrl: newBaseUrl,
+          apiKey: newApiKey || undefined,
+          model: newModel,
+          protocol: newProtocol,
+          opusModel: newOpus || undefined,
+          sonnetModel: newSonnet || undefined,
+          haikuModel: newHaiku || undefined,
+        });
+        cancelEdit();
+        await loadAll();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to update profile');
+      }
+    } else {
+      // Add
+      if (!newApiKey) return;
+      try {
+        await addProfile({
+          name: newName,
+          baseUrl: newBaseUrl,
+          apiKey: newApiKey,
+          model: newModel,
+          protocol: newProtocol,
+          opusModel: newOpus || undefined,
+          sonnetModel: newSonnet || undefined,
+          haikuModel: newHaiku || undefined,
+        });
+        setNewName(''); setNewBaseUrl(''); setNewApiKey(''); setNewModel('');
+        setNewProtocol('anthropic');
+        setNewOpus(''); setNewSonnet(''); setNewHaiku('');
+        await loadAll();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to add profile');
+      }
     }
   }
 
@@ -244,7 +301,13 @@ export default function App() {
               {currentProfile ? `Current profile: ${currentProfile}` : 'No profile selected'}
             </p>
           </div>
-          <Button variant="outline" onClick={loadAll}>Refresh</Button>
+          <div className="flex items-center gap-3">
+            <span className={`flex items-center gap-1.5 text-xs font-medium ${connected ? 'text-green-600' : 'text-red-500'}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+              {connected ? 'Connected' : 'Disconnected'}
+            </span>
+            <Button variant="outline" onClick={loadAll}>Refresh</Button>
+          </div>
         </div>
 
         {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>}
@@ -278,6 +341,7 @@ export default function App() {
                               {p.name === currentProfile && (
                                 <span className="rounded bg-primary/10 px-2 py-1 text-xs text-primary">active</span>
                               )}
+                              <Button size="sm" variant="ghost" onClick={() => startEditProfile(p)}>Edit</Button>
                               <Button size="sm" variant="ghost" onClick={() => handleSetDefault(p.name)}>Set default</Button>
                               <Button size="sm" variant="destructive" onClick={() => handleDelete(p.name)}>Delete</Button>
                             </div>
@@ -298,13 +362,13 @@ export default function App() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Add Profile</CardTitle>
-                  <CardDescription>Configure a new profile</CardDescription>
+                  <CardTitle>{editingProfile ? 'Edit Profile' : 'Add Profile'}</CardTitle>
+                  <CardDescription>{editingProfile ? `Editing: ${editingProfile}` : 'Configure a new profile'}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="name">Profile Name</Label>
-                    <Input id="name" placeholder="e.g. prod" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                    <Input id="name" placeholder="e.g. prod" value={newName} onChange={(e) => setNewName(e.target.value)} disabled={!!editingProfile} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="baseUrl">Base URL</Label>
@@ -312,7 +376,7 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="apiKey">API Key</Label>
-                    <Input id="apiKey" type="password" placeholder="sk-..." value={newApiKey} onChange={(e) => setNewApiKey(e.target.value)} />
+                    <Input id="apiKey" type="password" placeholder={editingProfile ? '(unchanged if empty)' : 'sk-...'} value={newApiKey} onChange={(e) => setNewApiKey(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="model">Default Model</Label>
@@ -344,7 +408,10 @@ export default function App() {
                       <Input id="haiku" placeholder="Haiku model" value={newHaiku} onChange={(e) => setNewHaiku(e.target.value)} />
                     </div>
                   </div>
-                  <Button className="w-full" onClick={handleAddProfile}>Add Profile</Button>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={handleAddProfile}>{editingProfile ? 'Update Profile' : 'Add Profile'}</Button>
+                    {editingProfile && <Button variant="outline" onClick={cancelEdit}>Cancel</Button>}
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -463,13 +530,14 @@ export default function App() {
                       {Object.entries(presets.imageAnalysis).map(([id, preset]) => {
                         const provider = mcpConfig.imageAnalysis.providers[id];
                         if (!provider) return null;
+                        const datalistId = `ia-model-${id}`;
                         return (
                           <div key={id} className="rounded-lg border p-4">
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="font-medium">{preset.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  Format: {preset.format} | Endpoint: {provider.baseUrl}
+                                  Format: {preset.format}
                                 </p>
                               </div>
                               <Switch
@@ -480,6 +548,15 @@ export default function App() {
                             </div>
                             {provider.enabled && (
                               <div className="mt-3 space-y-3">
+                                <div>
+                                  <Label className="text-xs">Endpoint (Base URL)</Label>
+                                  <Input
+                                    placeholder={preset.baseUrl}
+                                    value={provider.baseUrl}
+                                    onChange={(e) => updateIaProvider(id, 'baseUrl', e.target.value)}
+                                    className="mt-1"
+                                  />
+                                </div>
                                 <div>
                                   <Label className="text-xs">API Key</Label>
                                   <Input
@@ -492,15 +569,18 @@ export default function App() {
                                 </div>
                                 <div>
                                   <Label className="text-xs">Model</Label>
-                                  <select
-                                    className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  <Input
+                                    list={datalistId}
+                                    placeholder="Select or type model name..."
                                     value={provider.model}
                                     onChange={(e) => updateIaProvider(id, 'model', e.target.value)}
-                                  >
+                                    className="mt-1"
+                                  />
+                                  <datalist id={datalistId}>
                                     {preset.models.map((m) => (
-                                      <option key={m} value={m}>{m}</option>
+                                      <option key={m} value={m} />
                                     ))}
-                                  </select>
+                                  </datalist>
                                 </div>
                               </div>
                             )}

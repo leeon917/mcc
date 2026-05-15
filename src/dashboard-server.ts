@@ -111,6 +111,49 @@ async function main() {
       }
       const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, protocol: protocol || 'anthropic', createdAt: new Date().toISOString() };
       await saveProfile(profile, apiKey);
+      console.log(`[i] Profile created: ${name} (model: ${model}, protocol: ${protocol || 'anthropic'})`);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
+  // PUT /api/profiles/:name — update profile
+  app.put('/api/profiles/:name', async (req, res) => {
+    try {
+      const { baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol } = req.body as {
+        baseUrl?: string;
+        apiKey?: string;
+        model?: string;
+        opusModel?: string;
+        sonnetModel?: string;
+        haikuModel?: string;
+        protocol?: 'anthropic' | 'openai';
+      };
+      const profileName = req.params.name;
+      const getProfileApiKey = await importModule<(name: string) => string | undefined>(
+        './accounts/store',
+        'getProfileApiKey'
+      );
+      const existingKey = getProfileApiKey(profileName);
+      const profiles = await listProfiles();
+      const existing = profiles.find((p) => p.name === profileName);
+      if (!existing) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+      const updated: Profile = {
+        ...existing,
+        baseUrl: baseUrl ?? existing.baseUrl,
+        model: model ?? existing.model,
+        opusModel: opusModel !== undefined ? (opusModel || undefined) : existing.opusModel,
+        sonnetModel: sonnetModel !== undefined ? (sonnetModel || undefined) : existing.sonnetModel,
+        haikuModel: haikuModel !== undefined ? (haikuModel || undefined) : existing.haikuModel,
+        protocol: protocol ?? existing.protocol,
+      };
+      // Only update API key if a new one is provided
+      await saveProfile(updated, apiKey ?? existingKey ?? '');
+      console.log(`[i] Profile updated: ${profileName} (model: ${updated.model}, protocol: ${updated.protocol || 'anthropic'})`);
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -120,7 +163,9 @@ async function main() {
   // DELETE /api/profiles/:name
   app.delete('/api/profiles/:name', async (req, res) => {
     try {
-      await deleteProfile(req.params.name);
+      const name = req.params.name;
+      await deleteProfile(name);
+      console.log(`[i] Profile deleted: ${name}`);
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -135,6 +180,11 @@ async function main() {
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }
+  });
+
+  // GET /api/ping - connection health check
+  app.get('/api/ping', (_req, res) => {
+    res.json({ ok: true });
   });
 
   // GET /api/status
@@ -287,10 +337,10 @@ async function main() {
         const op = oldConfig.websearch.providers[id];
         if (!op) continue;
         if (op.enabled !== np.enabled) {
-          changes.push(`ws/${id} ${np.enabled ? 'on' : 'off'}`);
+          changes.push(`websearch.${id} ${np.enabled ? 'on' : 'off'}`);
         }
         if (op.apiKey !== np.apiKey) {
-          changes.push(np.apiKey ? `ws/${id} apiKey updated` : `ws/${id} apiKey cleared`);
+          changes.push(np.apiKey ? `websearch.${id} apiKey updated` : `websearch.${id} apiKey cleared`);
         }
       }
 
@@ -299,13 +349,16 @@ async function main() {
         const op = oldConfig.imageAnalysis.providers[id];
         if (!op) continue;
         if (op.enabled !== np.enabled) {
-          changes.push(`ia/${id} ${np.enabled ? 'on' : 'off'}`);
+          changes.push(`imageAnalysis.${id} ${np.enabled ? 'on' : 'off'}`);
         }
         if (op.apiKey !== np.apiKey) {
-          changes.push(np.apiKey ? `ia/${id} apiKey updated` : `ia/${id} apiKey cleared`);
+          changes.push(np.apiKey ? `imageAnalysis.${id} apiKey updated` : `imageAnalysis.${id} apiKey cleared`);
         }
         if (op.model !== np.model) {
-          changes.push(`ia/${id} model=${np.model}`);
+          changes.push(`imageAnalysis.${id} model=${np.model}`);
+        }
+        if (op.baseUrl !== np.baseUrl) {
+          changes.push(`imageAnalysis.${id} endpoint updated`);
         }
       }
 
@@ -342,6 +395,11 @@ async function main() {
     openBrowser(`http://localhost:${PORT}`);
   });
 }
+
+process.on('SIGINT', () => {
+  console.log('\n[i] Dashboard shutting down...');
+  process.exit(0);
+});
 
 main().catch((err) => {
   console.error(`[!] Dashboard server error: ${err.message}`);

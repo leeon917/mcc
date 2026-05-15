@@ -4,6 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import pc from 'picocolors';
 import {
   getBuiltinServerPath,
   BUILTIN_MCP_SERVERS,
@@ -79,7 +80,7 @@ export function installBuiltinServers(): void {
   }
 
   if (copied.length > 0) {
-    console.log(`[i] MCP files installed: ${copied.join(', ')}`);
+    console.log(`  ${pc.dim('install')}  ${pc.dim(copied.join(', '))}`);
   }
 }
 
@@ -222,7 +223,7 @@ export function syncInstanceMcpServers(
   });
 
   const count = Object.keys(mcpServers).length;
-  console.log(`[i] Synced ${count} MCP server(s) to ${path.join(instancePath, '.claude.json')}`);
+  console.log(`  ${pc.dim('mcp')}       ${pc.dim(`${count} server(s) synced`)}`);
 }
 
 /**

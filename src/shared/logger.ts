@@ -129,6 +129,10 @@ const log = {
 };
 export { log };
 
+export function isDebugEnabled(): boolean {
+  return _minLevel >= LEVELS.debug;
+}
+
 export function makeSessionId(): string {
   const now = new Date();
   const p = (n: number, l = 2) => String(n).padStart(l, '0');

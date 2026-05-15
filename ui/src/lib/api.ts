@@ -53,6 +53,15 @@ export async function addProfile(profile: Omit<Profile, 'createdAt'> & { apiKey:
   if (!res.ok) throw new Error('Failed to add profile');
 }
 
+export async function updateProfile(name: string, data: Partial<Profile> & { apiKey?: string }): Promise<void> {
+  const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update profile');
+}
+
 export async function deleteProfile(name: string): Promise<void> {
   const res = await fetch(`${API_BASE}/profiles/${name}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete profile');
@@ -106,6 +115,15 @@ export async function removeExternalMcpServer(name: string): Promise<void> {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to remove external MCP server');
+}
+
+export async function ping(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/ping`);
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function getStatus(): Promise<{ currentProfile?: string }> {

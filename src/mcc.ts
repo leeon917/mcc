@@ -7,6 +7,7 @@
 
 import { spawn } from 'child_process';
 import * as path from 'path';
+import pc from 'picocolors';
 import {
   listProfiles,
   getProfile,
@@ -34,7 +35,8 @@ import {
   type ExternalMcpServer,
 } from './mcp/external-registry';
 import { startProxy } from './proxy/proxy-daemon';
-import { log, init, makeSessionId } from './shared/logger';
+import { log, init, makeSessionId, isDebugEnabled } from './shared/logger';
+import { readMcpConfig, getEnabledWebSearchProviders, getActiveImageAnalysisProvider } from './mcp/mcp-config';
 
 const instanceMgr = new MCCInstanceManager();
 
@@ -42,24 +44,26 @@ function showHelp(): void {
   console.log(`
 MCC - My Cloud Code
 
-Usage: mcc <profile> [args...]   Launch Claude Code with a profile
-       mcc profile add <name>      Add a new profile
-       mcc profile list            List all profiles
-       mcc profile remove <name>   Remove a profile
-       mcc profile default [name] Get or set default profile
-       mcc mcp list               List all MCP servers
-       mcc mcp add <name>         Add external MCP server
-       mcc mcp remove <name>      Remove external MCP server
-       mcc mcp enable <name>       Enable external MCP for profile
-       mcc mcp disable <name>      Disable external MCP for profile
-       mcc dashboard               Open the web dashboard
-       mcc help                   Show this help
+Usage: mcc [mcc-options] <profile> [claude-options...]
+
+  <profile>          Profile name to launch (required)
+  [claude-options...]  All options after profile are passed directly to Claude Code
+
+MCC Options:
+  -h, --help          Show this help
+  --                Explicit separator (everything after is for Claude Code)
+
+  Note: All flags after <profile> are passed directly to Claude Code.
+
+  Debug logging:  MCC_LOG_LEVEL=debug node dist/mcc.js deepseek
 
 Examples:
+  mcc deepseek                                    Interactive session
+  mcc deepseek --print "hello"                   Non-interactive
+  mcc deepseek --print "hello" --verbose         Claude Code verbose mode
+
   mcc profile add prod --base-url https://api.deepseek.com/anthropic --api-key sk-xxxx --model deepseek-chat
-  mcc profile add minimax --base-url https://api.minimax.com --api-key sk-xxxx --model MiniMax-Text-01 --protocol openai
-  mcc mcp add minimax-plan --display-name "MiniMax Token Plan" --command uvx --args "minimax-coding-plan-mcp,-y" --provider-ref minimax
-  mcc prod
+  mcc profile list
   mcc dashboard
 `.trim());
 }
@@ -81,7 +85,8 @@ async function cmdLaunch(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`[i] Profile: ${profileName} (model: ${profile.model}, protocol: ${profile.protocol || 'anthropic'})`);
+  const proto = profile.protocol || 'anthropic';
+  console.log(`  ${pc.cyan(pc.bold('●'))} ${pc.bold(profileName)}  ${pc.dim('·')}  ${pc.cyan(profile.model)}  ${pc.dim('·')}  ${pc.dim(proto)}`);
 
   const apiKey = getProfileApiKey(profileName);
   if (!apiKey) {
@@ -89,25 +94,64 @@ async function cmdLaunch(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const instancePath = await instanceMgr.ensureInstance(profileName);
-  console.log(`[i] Instance: ${instancePath}`);
+  // Read MCP config early so we can display provider info
+  const mcpConfig = readMcpConfig();
+  const wsProviders = getEnabledWebSearchProviders(mcpConfig);
+  const iaProvider = getActiveImageAnalysisProvider(mcpConfig);
 
-  console.log('[i] Syncing MCP servers...');
+  const instancePath = await instanceMgr.ensureInstance(profileName);
+  console.log(`  ${pc.dim('instance')}  ${pc.dim(instancePath)}`);
+
   syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name), profileName);
 
-  // Initialize logging session — compute logDir BEFORE init() so it gets passed directly
+  // Initialize logging session
   const sessionId = makeSessionId();
   const mccHome = process.env.MCC_HOME ?? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '~', '.mcc');
   const logDir = path.join(mccHome, 'logs', profileName, sessionId);
   init(sessionId, logDir);
   log.info('MCC', `Session starting: ${profileName} | log: ${logDir}`);
-  console.log(`[i] Session: ${sessionId}`);
+  console.log(`  ${pc.dim('session')}   ${pc.dim(sessionId)}`);
+
+  // MCP provider summary
+  if (wsProviders.length > 0) {
+    console.log(`  ${pc.dim('websearch')}      ${pc.dim(wsProviders.join(', '))}`);
+  } else if (mcpConfig.websearch.enabled) {
+    console.log(`  ${pc.dim('websearch')}      ${pc.dim('none enabled')}`);
+  }
+  if (mcpConfig.imageAnalysis.enabled) {
+    if (iaProvider) {
+      console.log(`  ${pc.dim('image')}   ${pc.dim(iaProvider.id)} ${pc.dim('·')} ${pc.cyan(iaProvider.model)}`);
+    } else {
+      console.log(`  ${pc.dim('image')}   ${pc.dim('no active provider')}`);
+    }
+  }
 
   const env = buildProfileEnv(profile, apiKey, instancePath);
   env.MCC_CURRENT_PROFILE = profileName;
   env.MCC_LOG_SESSION_ID = sessionId;
   env.MCC_LOG_DIR = logDir;
-  console.log('[i] Environment ready');
+
+  // Debug: key env vars (no secrets)
+  if (isDebugEnabled()) {
+    const debugEnvs: [string, string][] = [
+      ['ANTHROPIC_BASE_URL', env.ANTHROPIC_BASE_URL],
+      ['ANTHROPIC_MODEL', env.ANTHROPIC_MODEL],
+      ['CLAUDE_CONFIG_DIR', env.CLAUDE_CONFIG_DIR],
+      ['MCC_WEBSEARCH_ENABLED', env.MCC_WEBSEARCH_ENABLED || '0'],
+      ['MCC_IMAGE_ANALYSIS_ENABLED', env.MCC_IMAGE_ANALYSIS_ENABLED || '0'],
+    ];
+    if (env.ANTHROPIC_DEFAULT_OPUS_MODEL !== env.ANTHROPIC_MODEL)
+      debugEnvs.push(['ANTHROPIC_DEFAULT_OPUS_MODEL', env.ANTHROPIC_DEFAULT_OPUS_MODEL]);
+    if (env.ANTHROPIC_DEFAULT_SONNET_MODEL !== env.ANTHROPIC_MODEL)
+      debugEnvs.push(['ANTHROPIC_DEFAULT_SONNET_MODEL', env.ANTHROPIC_DEFAULT_SONNET_MODEL]);
+    if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL !== env.ANTHROPIC_MODEL)
+      debugEnvs.push(['ANTHROPIC_DEFAULT_HAIKU_MODEL', env.ANTHROPIC_DEFAULT_HAIKU_MODEL]);
+
+    console.log(`  ${pc.dim('---')}`);
+    for (const [k, v] of debugEnvs) {
+      console.log(`  ${pc.dim('env')}       ${pc.dim(k)}=${pc.dim(v)}`);
+    }
+  }
 
   // Start translation proxy for OpenAI-compatible profiles
   if (profile.protocol === 'openai') {
@@ -118,14 +162,14 @@ async function cmdLaunch(args: string[]): Promise<void> {
       // MCP image analysis also needs to go through the proxy
       env.MCC_IMAGE_ANALYSIS_RUNTIME_BASE_URL = `http://127.0.0.1:${proxyInfo.port}`;
       env.MCC_IMAGE_ANALYSIS_RUNTIME_API_KEY = proxyInfo.authToken;
-      console.log(`[i] Translation proxy started on port ${proxyInfo.port}`);
+      console.log(`  ${pc.dim('proxy')}     ${pc.cyan(`:${proxyInfo.port}`)}`);
     } catch (e) {
       console.error(`[!] Failed to start translation proxy: ${(e as Error).message}`);
       process.exit(1);
     }
   }
 
-  console.log('[i] Launching Claude Code...');
+  console.log(`\n  ${pc.green('✓')} ${pc.bold('launching Claude Code')}`);
   const remainingArgs = args.slice(1);
   const child = spawn('claude', remainingArgs, {
     env: { ...process.env, ...env },
@@ -347,15 +391,39 @@ async function cmdMcpDisable(args: string[]): Promise<void> {
 
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
-  if (rawArgs.length === 0 || rawArgs[0] === 'help') {
+
+  // -h / --help
+  if (rawArgs[0] === '-h' || rawArgs[0] === '--help' || rawArgs.length === 0) {
+    showHelp();
+    return;
+  }
+
+  // Simple parse: first arg is the profile, everything after goes to Claude
+  // Use -- to explicitly separate: mcc deepseek -- --print "hello"
+  const remaining: string[] = [];
+  let i = 0;
+  while (i < rawArgs.length) {
+    const arg = rawArgs[i];
+    if (arg === '--') {
+      // Explicit separator: rest goes to Claude (including --)
+      remaining.push(...rawArgs.slice(i));
+      break;
+    } else {
+      // First non-flag = profile; everything after it (incl. flags) goes to Claude
+      remaining.push(...rawArgs.slice(i));
+      break;
+    }
+  }
+
+  if (remaining.length === 0) {
     showHelp();
     return;
   }
 
   installBuiltinServers();
 
-  const command = rawArgs[0];
-  const args = rawArgs.slice(1);
+  const command = remaining[0];
+  const args = remaining.slice(1);
 
   switch (command) {
     // mcc <profile> - launch with profile

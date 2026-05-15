@@ -8,6 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import pc from 'picocolors';
 
 function getHome(): string {
   return process.env.HOME ?? process.env.USERPROFILE ?? '~';
@@ -81,7 +82,7 @@ export class SharedManager {
       }
     }
     if (linked.length > 0) {
-      console.log(`[i] Shared items linked: ${linked.join(', ')}`);
+      console.log(`  ${pc.dim('shared')}   ${pc.dim(linked.join(', '))}`);
     }
   }
 

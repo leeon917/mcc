@@ -331,27 +331,57 @@ export default function App() {
                   ) : (
                     <div className="space-y-3">
                       {profiles.map((p) => (
-                        <div key={p.name} className="rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{p.name}</p>
-                              <p className="text-xs text-muted-foreground">{p.baseUrl}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {p.name === currentProfile && (
-                                <span className="rounded bg-primary/10 px-2 py-1 text-xs text-primary">active</span>
-                              )}
-                              <Button size="sm" variant="ghost" onClick={() => startEditProfile(p)}>Edit</Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleSetDefault(p.name)}>Set default</Button>
-                              <Button size="sm" variant="destructive" onClick={() => handleDelete(p.name)}>Delete</Button>
-                            </div>
+                        <div key={p.name} className="rounded-lg border p-4">
+                          {/* Header: name + badges */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-sm">{p.name}</span>
+                            {p.name === currentProfile && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-500/20">
+                                default
+                              </span>
+                            )}
+                            <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              {p.protocol || 'anthropic'}
+                            </span>
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <span>Default: {p.model}</span>
-                            <span>Protocol: {p.protocol || 'anthropic'}</span>
-                            {p.opusModel && <span>Opus: {p.opusModel}</span>}
-                            {p.sonnetModel && <span>Sonnet: {p.sonnetModel}</span>}
-                            {p.haikuModel && <span>Haiku: {p.haikuModel}</span>}
+
+                          {/* Base URL */}
+                          <p className="text-xs text-muted-foreground/60 truncate mb-3 font-mono">{p.baseUrl}</p>
+
+                          {/* Model details — label-value pairs with consistent alignment */}
+                          <div className="space-y-0.5 mb-3 text-xs">
+                            <div className="flex gap-3">
+                              <span className="text-muted-foreground w-14 shrink-0 text-right">default</span>
+                              <span className="font-mono text-foreground/80 truncate">{p.model}</span>
+                            </div>
+                            {p.opusModel && (
+                              <div className="flex gap-3">
+                                <span className="text-muted-foreground w-14 shrink-0 text-right">opus</span>
+                                <span className="font-mono text-foreground/80 truncate">{p.opusModel}</span>
+                              </div>
+                            )}
+                            {p.sonnetModel && (
+                              <div className="flex gap-3">
+                                <span className="text-muted-foreground w-14 shrink-0 text-right">sonnet</span>
+                                <span className="font-mono text-foreground/80 truncate">{p.sonnetModel}</span>
+                              </div>
+                            )}
+                            {p.haikuModel && (
+                              <div className="flex gap-3">
+                                <span className="text-muted-foreground w-14 shrink-0 text-right">haiku</span>
+                                <span className="font-mono text-foreground/80 truncate">{p.haikuModel}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 pt-2 border-t border-border/50">
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => startEditProfile(p)}>Edit</Button>
+                            {p.name !== currentProfile && (
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleSetDefault(p.name)}>Set default</Button>
+                            )}
+                            <span className="flex-1" />
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={() => handleDelete(p.name)}>Delete</Button>
                           </div>
                         </div>
                       ))}

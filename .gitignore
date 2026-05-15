@@ -32,11 +32,15 @@ yarn.lock
 pnpm-lock.yaml
 package-lock.json
 
+.claude/settings.local.json
 .claude/active-plan
 .claude/agent-memory/
 .claude/plans-registry.json*
 CLAUDE.local.md
 AGENTS.override.md
+
+# Temp files (screenshots, etc.)
+temp/
 
 # Logs directory
 logs/

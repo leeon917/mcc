@@ -4,6 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { SharedManager } from './shared-manager';
 
 function getMccHome(): string {
   return process.env.MCC_HOME ?? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '~', '.mcc');
@@ -12,6 +13,8 @@ function getMccHome(): string {
 function getInstancesDir(): string {
   return path.join(getMccHome(), 'instances');
 }
+
+const sharedManager = new SharedManager();
 
 export class MCCInstanceManager {
   async ensureInstance(accountName: string): Promise<string> {
@@ -23,6 +26,8 @@ export class MCCInstanceManager {
         fs.mkdirSync(path.join(instancePath, dir), { recursive: true, mode: 0o700 });
       }
     }
+    // Always re-link shared directories (skills, commands, agents, plugins, settings)
+    sharedManager.linkSharedDirectories(instancePath);
     return instancePath;
   }
 

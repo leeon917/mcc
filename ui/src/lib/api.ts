@@ -19,6 +19,25 @@ export interface McpServer {
   enabled: boolean;
 }
 
+export interface ExternalMcpServer {
+  name: string;
+  displayName: string;
+  description: string;
+  command: string;
+  args: string[];
+  envVars: Record<string, string>;
+  enabledByDefault: boolean;
+}
+
+export interface AllMcpServer {
+  name: string;
+  displayName: string;
+  description: string;
+  builtin: boolean;
+  enabledByDefault?: boolean;
+  enabled: boolean;
+}
+
 export async function getProfiles(): Promise<Profile[]> {
   const res = await fetch(`${API_BASE}/profiles`);
   if (!res.ok) throw new Error('Failed to fetch profiles');
@@ -50,15 +69,99 @@ export async function getMcpServers(): Promise<McpServer[]> {
   return res.json();
 }
 
-export async function toggleMcp(name: string, enabled: boolean): Promise<void> {
-  const res = await fetch(`${API_BASE}/mcp/${name}/${enabled ? 'enable' : 'disable'}`, {
-    method: 'PUT',
-  });
+export async function toggleMcp(name: string, enabled: boolean, instance?: string): Promise<void> {
+  const url = instance
+    ? `${API_BASE}/mcp/${name}/${enabled ? 'enable' : 'disable'}?instance=${encodeURIComponent(instance)}`
+    : `${API_BASE}/mcp/${name}/${enabled ? 'enable' : 'disable'}`;
+  const res = await fetch(url, { method: 'PUT' });
   if (!res.ok) throw new Error('Failed to toggle MCP server');
+}
+
+export async function getAllMcpServers(instance?: string): Promise<AllMcpServer[]> {
+  const url = instance
+    ? `${API_BASE}/mcp/all?instance=${encodeURIComponent(instance)}`
+    : `${API_BASE}/mcp/all`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch all MCP servers');
+  return res.json();
+}
+
+export async function getExternalMcpServers(): Promise<ExternalMcpServer[]> {
+  const res = await fetch(`${API_BASE}/mcp/external`);
+  if (!res.ok) throw new Error('Failed to fetch external MCP servers');
+  return res.json();
+}
+
+export async function addExternalMcpServer(server: ExternalMcpServer): Promise<void> {
+  const res = await fetch(`${API_BASE}/mcp/external`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) throw new Error('Failed to add external MCP server');
+}
+
+export async function removeExternalMcpServer(name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/mcp/external/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to remove external MCP server');
 }
 
 export async function getStatus(): Promise<{ currentProfile?: string }> {
   const res = await fetch(`${API_BASE}/status`);
   if (!res.ok) throw new Error('Failed to fetch status');
+  return res.json();
+}
+
+// MCP Config types and API
+
+export interface WebSearchProviderConfig {
+  enabled: boolean;
+  apiKey?: string;
+}
+
+export interface ImageAnalysisProviderConfig {
+  enabled: boolean;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  format: 'anthropic' | 'openai';
+}
+
+export interface McpConfig {
+  websearch: {
+    enabled: boolean;
+    providers: Record<string, WebSearchProviderConfig>;
+  };
+  imageAnalysis: {
+    enabled: boolean;
+    providers: Record<string, ImageAnalysisProviderConfig>;
+  };
+}
+
+export interface ProviderPresets {
+  websearch: Record<string, { name: string; needsApiKey: boolean; description: string }>;
+  imageAnalysis: Record<string, { name: string; format: string; baseUrl: string; models: string[] }>;
+}
+
+export async function getMcpConfig(): Promise<McpConfig> {
+  const res = await fetch(`${API_BASE}/mcp-config`);
+  if (!res.ok) throw new Error('Failed to fetch MCP config');
+  return res.json();
+}
+
+export async function updateMcpConfig(config: McpConfig): Promise<void> {
+  const res = await fetch(`${API_BASE}/mcp-config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) throw new Error('Failed to update MCP config');
+}
+
+export async function getProviderPresets(): Promise<ProviderPresets> {
+  const res = await fetch(`${API_BASE}/mcp-config/presets`);
+  if (!res.ok) throw new Error('Failed to fetch provider presets');
   return res.json();
 }

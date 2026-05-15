@@ -34,6 +34,7 @@ import {
   type ExternalMcpServer,
 } from './mcp/external-registry';
 import { startProxy } from './proxy/proxy-daemon';
+import { log, init, makeSessionId } from './shared/logger';
 
 const instanceMgr = new MCCInstanceManager();
 
@@ -89,7 +90,15 @@ async function cmdLaunch(args: string[]): Promise<void> {
   const instancePath = await instanceMgr.ensureInstance(profileName);
   syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name), profileName);
 
+  // Initialize logging session
+  const sessionId = makeSessionId();
+  const logDir = init(sessionId);
+  log.info('MCC', `Session starting: ${profileName} | log: ${logDir}`);
+
   const env = buildProfileEnv(profile, apiKey, instancePath);
+  env.MCC_CURRENT_PROFILE = profileName;
+  env.MCC_LOG_SESSION_ID = sessionId;
+  env.MCC_LOG_DIR = logDir;
 
   // Start translation proxy for OpenAI-compatible profiles
   if (profile.protocol === 'openai') {

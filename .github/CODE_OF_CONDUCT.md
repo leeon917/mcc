@@ -1,40 +1,40 @@
-# CCS Code of Conduct
+# CCS 行为准则
 
-CCS is a technical project. Keep discussion respectful, constructive, and focused on improving the work.
+CCS 是一个技术项目。请保持讨论的尊重性、建设性和专注于改进工作。
 
-## Expected Behavior
+## 期望行为
 
-- Be respectful in issues, pull requests, reviews, and discussions.
-- Assume good intent and ask clarifying questions before escalating.
-- Give feedback that is specific, technical, and actionable.
-- Be patient with contributors who are new to the codebase or toolchain.
-- Respect maintainers' time by keeping reports reproducible and well scoped.
+- 在 issue、pull request、review 和讨论中保持尊重。
+- 在升级之前，假设善意并提出澄清性问题。
+- 给出具体、技术性和可操作的反馈。
+- 对代码库或工具链新手保持耐心。
+- 通过保持报告可复现且范围明确来尊重维护者的时间。
 
-## Unacceptable Behavior
+## 不可接受的行为
 
-- Harassment, discrimination, or hate speech
-- Personal attacks, insults, or hostile dogpiling
-- Publishing private information, credentials, logs, or screenshots that expose sensitive data
-- Spam, repeated derailment, or intentionally disruptive behavior
-- Sexualized language or unwelcome sexual attention
+- 骚扰、歧视或仇恨言论
+- 人身攻击、侮辱或恶意围攻
+- 发布暴露敏感数据的私人信息、凭证、日志或截图
+- 垃圾信息、反复跑题或故意破坏行为
+- 性化语言或不受欢迎的性关注
 
-## Scope
+## 适用范围
 
-This applies to project spaces, including:
+这适用于项目空间，包括：
 
-- GitHub issues
-- Pull requests and review comments
-- Discussions
-- Any other repository-managed collaboration channel
+- GitHub issue
+- Pull request 和 review 评论
+- 讨论区
+- 任何其他仓库管理的协作渠道
 
-## Enforcement
+## 执行
 
-Maintainers may edit or remove content, lock conversations, close threads, reject contributions, or block participants when needed to protect the project and contributors.
+维护者可在必要时编辑或删除内容、锁定对话、关闭话题、拒绝贡献或封禁参与者，以保护项目和贡献者。
 
-For non-sensitive concerns, use the public issue templates.
+对于非敏感问题，使用公开的 issue 模板。
 
-For sensitive concerns, do not post details publicly. Use the private reporting path in `SECURITY.md`.
+对于敏感问题，请勿公开发布详细信息。请使用 `SECURITY.md` 中的私人报告路径。
 
-## Practical Rule
+## 实践规则
 
-Critique code, behavior, and decisions. Do not attack people.
+批评代码、行为和决策。不要攻击人。

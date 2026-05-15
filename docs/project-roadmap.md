@@ -1,168 +1,168 @@
-# CCS Project Roadmap
+# CCS 项目路线图
 
-Last Updated: 2026-05-09
+最后更新：2026-05-09
 
-Forward-looking roadmap documenting current priorities, GitHub issues, and future feature plans.
+前瞻性路线图，记录当前优先级、GitHub issues 和未来功能计划。
 
 ---
 
-## Completed Modularization Summary
+## 已完成模块化总结
 
-All major modularization work is complete. The codebase evolved from monolithic files to a well-structured modular architecture.
+所有主要模块化工作已完成。代码库从单体文件演变为结构良好的模块化架构。
 
-| Phase | Description | Key Result |
+| 阶段 | 描述 | 关键结果 |
 |-------|-------------|------------|
-| 1 | Type System | `src/types/` with barrel exports |
-| 2 | CLI Commands | `src/commands/` (8 handlers extracted) |
-| 3 | CLIProxy | `src/cliproxy/` with auth/, binary/, services/ subdirs |
-| 4 | Utils/Errors | `src/utils/ui/`, `src/errors/`, `src/management/` |
-| 5 | UI Components | 5 monster files split into modular dirs (54+ modules) |
-| 6 | Settings Page | `pages/settings/` (1,781->20 files) |
-| 7 | Analytics Page | `pages/analytics/` (420->8 files) |
-| 8 | Auth Monitor | `monitoring/auth-monitor/` (465->8 files) |
-| 9 | Test Infrastructure | 1407 tests, 90% coverage |
-| 10 | Remote CLIProxy | `proxy-config-resolver.ts`, `remote-proxy-client.ts` |
-| 11 | Kiro + legacy ghcp Providers | OAuth support via CLIProxyAPIPlus (v7.2) |
-| 12 | Hybrid Quota Management | `quota-manager.ts`, `quota-fetcher.ts` (v7.14) |
-| 13 | Docker Support | `docker/` directory with Dockerfile, Compose, entrypoint |
-| 14 | Image Analysis Hook | Vision proxying via CLIProxy transformers (v7.34) |
-| 15 | Third-Party Tool Integration | `ccs env` command with multi-format export (v7.39) |
+| 1 | 类型系统 | `src/types/` 与 barrel exports |
+| 2 | CLI 命令 | `src/commands/`（提取了 8 个处理器） |
+| 3 | CLIProxy | `src/cliproxy/` 与 auth/、binary/、services/ 子目录 |
+| 4 | Utils/Errors | `src/utils/ui/`、`src/errors/`、`src/management/` |
+| 5 | UI 组件 | 5 个巨型文件拆分为模块化目录（54+ 模块） |
+| 6 | Settings 页面 | `pages/settings/`（1,781->20 个文件） |
+| 7 | Analytics 页面 | `pages/analytics/`（420->8 个文件） |
+| 8 | Auth Monitor | `monitoring/auth-monitor/`（465->8 个文件） |
+| 9 | 测试基础设施 | 1407 测试，90% 覆盖率 |
+| 10 | 远程 CLIProxy | `proxy-config-resolver.ts`、`remote-proxy-client.ts` |
+| 11 | Kiro + 旧版 ghcp Providers | 通过 CLIProxyAPIPlus 的 OAuth 支持（v7.2） |
+| 12 | 混合配额管理 | `quota-manager.ts`、`quota-fetcher.ts`（v7.14） |
+| 13 | Docker 支持 | `docker/` 目录与 Dockerfile、Compose、entrypoint |
+| 14 | 图片分析 Hook | 通过 CLIProxy transformers 的视觉代理（v7.34） |
+| 15 | 第三方工具集成 | 带多格式导出的 `ccs env` 命令（v7.39） |
 
-**Metrics Achieved**:
-- Files >500 lines: 12 -> 5 (-58%)
-- UI files >200 lines: 28 -> 8 (-71%)
-- Barrel exports: 5 -> 39 (+680%)
-- Test coverage: 0% -> 90%
-- Total tests: 1440 (6 skipped)
+**已达成指标**：
+- 超过 500 行的文件：12 -> 5（-58%）
+- 超过 200 行的 UI 文件：28 -> 8（-71%）
+- Barrel exports：5 -> 39（+680%）
+- 测试覆盖率：0% -> 90%
+- 总测试数：1440（6 跳过）
 
 ---
 
-## Current Status
+## 当前状态
 
-### Recent Fixes
+### 最近修复
 
-- **2026-05-09**: **#1199** Existing Claude auth accounts now have dashboard-visible Shared Resources controls separate from History Sync. Accounts exposes a dedicated Resources action for `shared` vs `profile-local`, `/shared` now inventories commands, skills, agents, plugins, and `settings.json`, plugin directories without docs show factual directory contents, and shared settings content is inspectable read-only through the localhost-gated shared-content API.
-- **2026-05-07**: **#760** Codex GPT fast mode is now a first-class CLIProxy model tuning suffix. CCS accepts `gpt-5.4-fast`, `gpt-5.4-high-fast`, and equivalent canonicalized forms in raw env configs, CLI variant creation, and the dashboard model picker; runtime requests now send the base upstream model with `reasoning.effort` plus `service_tier: "priority"` instead of leaking the suffixed alias to CLIProxy upstream routing.
-- **2026-05-07**: **#1103** GitHub Copilot is now treated as a deprecated compatibility bridge. The dashboard moves Copilot out of the active Identity & Access section and into Deprecated, quick setup no longer offers `ghcp` for new onboarding, CLI/help/config copy marks Copilot as deprecated, and existing `ccs copilot` / `ghcp` compatibility paths remain available for current setups.
-- **2026-05-07**: **#1189** Headless settings-profile delegation now preserves native Claude passthrough args without a Claude flag allowlist. Explicit `--channels` values reach Claude Code, future native flags can carry multiple adjacent values, malformed CCS-owned flags no longer swallow the next native flag, and `--prompt=<text>` routes through headless delegation consistently with `--prompt <text>`.
-- **2026-05-03**: **#1172** Local CLIProxy config generation now keeps the CPAMC management dashboard aligned with backend selection. `backend: original` points to the upstream dashboard, `backend: plus` points to the CCS-maintained CPAMC fork, `cliproxy.management_panel_repository` lets advanced users override the panel repository, and stale generated configs are regenerated when the expected panel source changes.
-- **2026-04-30**: **#1153** Native Claude launches now accept session-scoped `--effort low|medium|high|xhigh|max` overrides through CCS without mutating global Claude settings. CCS validates invalid or missing effort values before spawning Claude, normalizes accepted values, keeps default headless `-p/--prompt` launches on native Claude instead of delegation parsing, and preserves CLIProxy/Codex/Droid effort aliases.
-- **2026-04-28**: **#1123** CLIProxy quota failover now uses the dashboard/manual pause mechanism for all quota-visible OAuth providers with CCS quota fetchers: Antigravity, Claude, Codex, Gemini CLI, and GitHub Copilot. When a healthy fallback exists, CCS moves the exhausted account token out of the live `auth/` folder into `auth-paused/`, marks the account paused for dashboard visibility, persists the cooldown for auto-resume, and still avoids self-pausing the last usable account.
-- **2026-04-28**: **#1115** CCS now exposes upstream CLIProxy session affinity as a first-class local managed setting. Users can inspect and toggle local `session-affinity` plus TTL from `ccs cliproxy routing affinity`, from the `/cliproxy` dashboard routing card, and through the local dashboard API. The generated local CLIProxy config now persists `routing.session-affinity` and `routing.session-affinity-ttl`, help/copy explains that CLIProxy prefers explicit session or thread identifiers before falling back to prompt-history hashing, and remote session-affinity management stays explicitly unsupported until upstream management APIs expose more than `routing.strategy`.
-- **2026-04-24**: **#1065** Local CLIProxy Plus is available again as an explicit opt-in backend through the community-maintained `kaitranntt/CLIProxyAPIPlus` fork. CCS keeps `original` as the default backend, no longer downgrades saved `backend: plus` configs to `original`, updates Plus release lookups to the maintained fork, and documents Plus as a targeted path for plus-only providers.
-- **2026-04-21**: CLIProxy quota failover now quarantines exhausted Claude and Antigravity accounts out of live rotation when a healthy fallback exists. CCS persists those quota-triggered pauses across launches, automatically resumes them after the configured cooldown window, and deliberately avoids auto-pausing the last available account so single-account setups still degrade gracefully instead of hard-locking themselves.
-- **2026-04-20**: **#1051** Browser automation now defaults safe-off for new installs and upgrades that do not already carry explicit browser settings. CCS changes both Claude Browser Attach and Codex Browser Tools to start with `enabled: false` and `policy: manual`, normalizes missing browser policies on upgrade back to `manual`, preserves explicit existing enablement, and updates status/help/docs so browser tooling is never implied to auto-expose unless users opt in.
-- **2026-04-19**: **#1051** Browser tooling now has an explicit exposure policy instead of only coarse enablement toggles. CCS adds `browser.<lane>.policy` (`auto` or `manual`) for both Claude Browser Attach and Codex Browser Tools, exposes CLI-first policy controls through `ccs browser policy`, `ccs browser enable`, and `ccs browser disable`, and adds one-run launch overrides `--browser` and `--no-browser` so users can force browser tooling on or off without editing saved config.
-- **2026-04-19**: **#1049** Browser setup now has a real remediation path instead of status/doctor-only guidance. CCS adds `ccs browser setup` as the primary one-command flow for Claude Browser Attach, shortens managed browser-path output to home-relative display paths where appropriate, and updates browser readiness guidance to point users at setup first while keeping browser doctor read-only by default.
-- **2026-04-18**: **#1038** Legacy OpenAI-compatible provider writes no longer self-destruct on the next `ccs cliproxy restart`. CCS now preserves AI-provider-managed top-level sections such as `openai-compatibility` during CLIProxy config regeneration, and the legacy `openai-compat` manager now rewrites only its own YAML section instead of dumping the whole file and stripping the generated version header. Regression coverage now proves the legacy helper keeps the generated header intact and that OpenAI-compatible connectors survive regeneration.
-- **2026-04-16**: **#1030** Browser automation is now a first-class CCS surface instead of an env-only/runtime-only feature. CCS adds `ccs help browser`, `ccs browser status`, and `ccs browser doctor`; a dedicated `Settings -> Browser` dashboard tab for Claude Browser Attach and Codex Browser Tools; a new `browser` section in `~/.ccs/config.yaml`; explicit readiness/next-step messaging for attach-mode Chrome sessions; and Codex UI guidance that marks the managed `ccs_browser` entry as CCS-owned and redirects browser setup away from the generic MCP editor.
-- **2026-04-15**: **#969** Local CLIProxy bootstrap no longer depends on live GitHub reachability during normal dashboard and runtime startup. CCS now skips hidden auto-update lookups on standard CLIProxy bootstrap paths, fails fast with explicit `ccs cliproxy install` guidance when a service start needs a binary that is not installed locally, and keeps `ccs config` able to open the dashboard in limited mode instead of stalling behind blocked release downloads.
-- **2026-04-15**: **#1010** Remote dashboard auth guidance now explains the Docker boundary explicitly. The readonly banner, remote login/setup card, and dashboard-auth docs now tell users that integrated Docker deployments keep config inside the running `ccs-cliproxy` container volume, so `ccs config auth setup` must run there rather than in the outer host shell.
-- **2026-04-14**: **#991** CCS now auto-routes Claude-target settings profiles that use OpenAI-compatible endpoints through a local Anthropic-compatible proxy instead of sending raw Anthropic `/v1/messages` traffic directly to chat-completions backends. The `ccs proxy` command now supports `start`, `status`, `activate`, and `stop` with explicit host binding, shell-aware activation helpers, and a fuller local runtime env contract. The proxy surface now exposes `GET /`, `/health`, `/v1/models`, and `/v1/messages`, logs routing decisions into CCS structured logs, supports Anthropic image blocks plus request-time `profile:model` overrides, and adds config-driven scenario routing (`background`, `think`, `longContext`, `webSearch`) on top of the compatible-profile path. Coverage now includes request routing, rate-limit/timeout/empty-upstream failures, chunked tool-call streaming, and disconnect cleanup alongside the existing unit, integration, and e2e suites.
-- **2026-04-10**: **#765** `/providers` now includes a first-class Hugging Face preset for API Profiles. CCS exposes Hugging Face Inference Providers through the existing OpenAI-compatible profile flow with the official router endpoint `https://router.huggingface.co/v1`, a short `hf` default profile name, and `hf` preset alias support for both the dashboard chooser and `ccs api create --preset hf`.
-- **2026-04-10**: **#944** Image Analysis auth readiness no longer collapses to native Read when merged runtime-status dependency overrides include a missing initializer value. CCS now preserves default dependency functions when override entries are `undefined`, still reads token-backed auth status directly in the local readiness path, and includes regression coverage for the missing-initializer case that previously surfaced as `deps.initializeAccounts is not a function`.
-- **2026-04-10**: **#945** CCS now normalizes Gemini CLI and Antigravity tier signals around an explicit `free / pro / ultra / unknown` model, preserves raw tier ids such as `g1-pro-tier`, enriches Gemini quota responses with provider entitlement evidence, classifies `MODEL_CAPACITY_EXHAUSTED` separately from auth/entitlement failures, fixes the Antigravity CLI quota table so live quota-derived tiers no longer collapse back to stale `unknown`, adds Gemini tier ids to CLI quota output, extends Gemini Flash Lite grouping to cover `gemini-3.1-flash-lite-preview`, and allows Gemini account surfaces to render the same tier badge semantics as Antigravity.
-- **2026-04-09**: **#938** Cliproxy model routing now exposes backend-pinned short prefixes for overlapping OAuth backends. CCS repairs managed OAuth auth-file prefixes for Gemini CLI (`gcli`) and Antigravity (`agy`), enriches `/api/cliproxy/catalog` with routing hints that show whether an unprefixed model is safe, shadowed, or prefix-only, upgrades `ccs cliproxy catalog` plus interactive variant model pickers to surface the pinned names, and updates the `ccs config` Cliproxy model selection UI so users can see the preferred call name and current effective backend before saving settings.
-- **2026-04-08**: **#931** `/cliproxy` model pickers now source their provider catalogs from CLIProxy management model definitions instead of treating the UI catalog file as the dropdown source of truth. CCS now refreshes live model definitions for Gemini, Codex, Claude, Antigravity, Qwen, iFlow, Kiro, GitHub Copilot, and Kimi through `/api/cliproxy/catalog`, overlays CCS-only preset/default metadata on top of those upstream models, keeps `/api/cliproxy/models` as the live availability feed, and falls back to cached/static catalogs when the proxy is unavailable so the dashboard never goes blank.
-- **2026-04-08**: **#929** Image Analysis hardening now makes the managed `ccs-image-analysis` MCP path authoritative on healthy Claude-target launches, suppresses stale CCS-managed image `Read` hooks instead of letting them compete with MCP, keeps the legacy hook available only as compatibility fallback when MCP provisioning fails, and extends self-heal to dashboard provisioning plus `ccs doctor --fix` so stale hook files and missing isolated MCP sync are repaired automatically.
-- **2026-04-07**: CLIProxy routing strategy is now a first-class CCS surface. Users can inspect and explicitly change `round-robin` vs `fill-first` from `ccs cliproxy routing` and from a native `/cliproxy` dashboard card. Local mode now persists the chosen startup default into CCS-managed CLIProxy config generation, while untouched installs remain on `round-robin`. CCS deliberately does not infer strategy from account composition.
-- **2026-04-07**: **#926** CCS now has a first-class structured logging layer under `src/services/logging/`, a bounded top-level `logging` config section in `~/.ccs/config.yaml`, automatic rotation/retention for CCS-owned logs under `~/.ccs/logs/`, native `/api/logs` dashboard endpoints, request tracing for the dashboard backend, and a dedicated `System -> Logs` dashboard route for browsing recent entries and editing retention settings. Legacy CLIProxy error files remain available as a labeled legacy source instead of acting as the primary logging model.
-- **2026-04-06**: The dashboard login surface now distinguishes a real sign-in from a host-setup requirement. Remote/IP visitors no longer see a misleading blank credential form when dashboard auth is disabled or incomplete; they now get explicit guidance that CCS has no default credentials, should be enabled on the host with `ccs config auth setup`, or should be reopened via localhost when used on the same machine. The password field now includes a show/hide toggle, and the page exposes an explicit light/dark theme switch before sign-in.
-- **2026-04-04**: The GitHub README was reduced from a wall-of-text reference dump into a shorter conversion surface that keeps the hero, proof screenshots, and fast-start commands while delegating deeper installation, provider, feature, and CLI-reference content to `docs.ccs.kaitran.ca`. The docs site now includes a dedicated `Product Tour` page for the screenshot-led walkthrough.
-- **2026-04-05**: **#912 #913 #914** Kiro auth is now aligned with the current CLIProxyAPIPlus contract. CCS auto-selects the Builder ID path for the default `ccs kiro --auth` flow instead of stalling on the upstream Builder ID vs IDC chooser, callback-based Kiro auth methods can use `--paste-callback` by replaying the pasted redirect URL back into the local callback server, and the CLI now supports IDC auth via `--kiro-auth-method idc` plus `--kiro-idc-start-url`, `--kiro-idc-region`, and `--kiro-idc-flow`.
-- **2026-04-03**: CCS CLI help and completion UX was refreshed. Root help is now shorter and task-oriented, `ccs help <topic|command>` routes to topic-aware help, and shell completions now delegate to the hidden `ccs __complete` backend.
-- **2026-04-02**: Third-party image and PDF analysis now follows the same first-class local-tool model as WebSearch. CCS provisions `ccs-image-analysis` as a managed MCP tool, routes requests directly to provider-scoped CCS endpoints such as `/api/provider/agy/v1/messages`, keeps editable prompt templates under `~/.ccs/prompts/image-analysis/`, and demotes the old `Read` hook to a best-effort compatibility fallback. Launches now stay non-fatal and fall back to native `Read` when the managed runtime cannot be prepared.
-- **2026-04-01**: The `Compatible -> Codex CLI` dashboard now exposes manual long-context controls for `model_context_window` and `model_auto_compact_token_limit`. CCS reads and patches those upstream Codex config keys directly, adds official guidance that GPT-5.4 long context is experimental and opt-in, and keeps the behavior manual-only so the dashboard never auto-fills or auto-saves long-context values for the user.
-- **2026-03-30**: **#862** Third-party WebSearch now uses a first-class CCS-managed MCP tool path instead of relying on a denied native Anthropic `WebSearch` call as the normal UX. CCS provisions `ccs-websearch` into `~/.claude.json`, syncs it into isolated account configs when needed, suppresses native `WebSearch` on third-party launches, preserves the provider order `Exa -> Tavily -> Brave -> DuckDuckGo -> legacy CLI fallback`, and keeps the old hook runtime only as shared provider plumbing plus compatibility fallback. Uninstall cleanup now also removes the managed WebSearch MCP runtime.
-- **2026-03-28**: **#773** CCS now ships a dedicated `Compatible -> Codex CLI` dashboard route with a real split-view control center. The page detects the local Codex binary, keeps overview/docs guidance, and adds guided editors for the user-owned `~/.codex/config.toml` layer: top-level runtime defaults, project trust, profiles, model providers, MCP servers, and supported feature flags. Structured saves intentionally normalize TOML formatting and drop comments, so the raw editor remains the fidelity escape hatch. Follow-up fixes added immediate raw snapshot refresh, refresh/discard recovery for stale raw drafts, dirty raw-editor guarding for structured controls, project-trust path validation, read-only handling for unreadable config files, preservation of unsupported upstream values such as granular `approval_policy`, and feature reset-to-default support. CCS still warns that transient runtime overrides such as `codex -c key=value` and `CCS_CODEX_API_KEY` may change effective behavior without persisting into the file.
-- **2026-03-27**: WebSearch dashboard cards now manage Exa, Tavily, and Brave API keys inline instead of relying on a separate manual env step. CCS stores those secrets through `global_env`, reflects masked key state in `/api/websearch`, and counts dashboard-managed keys as ready in the WebSearch status flow.
-- **2026-03-27**: **#812** CCS now includes a first-class `ccs docker` command suite for self-hosting the integrated Dashboard + CLIProxy stack. The CLI can stage bundled Docker assets locally or to a remote `--host` over SSH, report compose/supervisor status, stream CCS or CLIProxy logs, and run in-container update flows without relying on ad-hoc deployment scripts.
-- **2026-03-24**: Official Claude Channels now follow Anthropic's actual runtime contract. CCS blocks auto-enable unless Bun is available, Claude Code is verified at v2.1.80+, and `claude.ai` auth is verified; treats `--allow-dangerously-skip-permissions` as an explicit override; keeps Telegram/Discord bot tokens in Claude's shared `~/.claude/channels/` state (or official `*_STATE_DIR` overrides); and upgrades the dashboard/CLI status flow with Bun/version/auth/state-scope guidance, safer token draft retention on refresh failures, and a non-macOS iMessage toggle that can still be turned off when already selected.
-- **2026-03-23**: CLIProxy providers that do not expose an email no longer require a user-supplied nickname on first auth. CCS now derives a stable internal account identifier for Kiro/Copilot-style flows, preserves later rename support, hardens account discovery/registry sync around that identifier, and updates AI Provider CRUD to use stable entry IDs instead of dashboard list indexes.
-- **2026-03-23**: Sensitive dashboard management routes now fail closed to localhost-only access whenever dashboard auth is disabled. Remote access remains available after `ccs config auth setup`, but AI Provider management, CLIProxy auth/status helpers, and other write-capable settings endpoints no longer trust unauthenticated non-loopback requests.
-- **2026-03-19**: **#649** CCS splits CLIProxy provider-key authoring into a dedicated `CLIProxy -> AI Providers` dashboard route. `/cliproxy` now stays focused on OAuth accounts and variants, `/cliproxy/ai-providers` owns Gemini/Codex/Claude/Vertex/OpenAI-compatible key management, and `/providers` stays reserved for CCS-native API Profiles.
-- **2026-03-18**: **#755** Marketplace refresh no longer reuses one shared `known_marketplaces.json` across isolated instances. CCS now keeps marketplace payload directories shared while reconciling per-instance marketplace metadata so Claude Code validation succeeds for alternating or concurrent profiles, including Windows copy fallback.
-- **2026-03-17**: Deprecated user-facing GLMT discovery across CLI help, completions, presets, and docs. Existing `glmt` profiles now run through a compatibility path that normalizes legacy proxy settings to the direct GLM endpoint.
-- **#748**: API profile creation now keeps provider selection compact by collapsing advanced presets behind an explicit toggle, shrinking chooser cards so the form fields stay visually primary, and giving `llama.cpp` a dedicated provider logo.
-- **#744**: API profile creation now keeps featured providers in a horizontal rail with scroll fallback, moves Anthropic Direct API to the end, reuses the shared Claude logo, and separates the custom-endpoint entry point from advanced template discovery.
-- **#724**: Codex startup is now free-plan safe. CCS defaults new Codex sessions to a cross-plan model and uses runtime fallback handling for unsupported paid-only models without rewriting the saved dashboard settings.
-- **#737**: Dashboard model pickers in Cursor, Copilot, and CLIProxy now use a searchable combobox with autofocus and explicit no-results states for large model catalogs.
-- **#736**: `ccs config` now supports explicit dashboard bind hosts via `--host`, and surfaces remote-access warnings plus reachable URLs when the effective bind is non-loopback.
-- **#1121**: Usage analytics pricing now refreshes cached models.dev metadata before cost derivation, keeps CCS static pricing as the offline fallback, and carries provider identity through CLIProxy/native runtime breakdowns so subscription-backed providers do not inherit paid API pricing.
+- **2026-05-09**：**#1199** 现有 Claude 认证账户现在在 Dashboard 中可见的 Shared Resources 控制与 History Sync 分开。Accounts 公开了用于 `shared` vs `profile-local` 的专用 Resources 操作，`/shared` 现在清单 commands、skills、agents、plugins 和 `settings.json`，没有文档的 plugin 目录显示真实的目录内容，共享设置内容可通过 localhost-gated 共享内容 API 进行只读检查。
+- **2026-05-07**：**#760** Codex GPT fast 模式现在是一级 CLIProxy 模型调优后缀。CCS 接受 `gpt-5.4-fast`、`gpt-5.4-high-fast` 以及原始 env 配置、CLI 变体创建和 dashboard 模型选择器中的等效规范化形式；运行时请求现在发送带 `reasoning.effort` 和 `service_tier: "priority"` 的基本上游模型，而不是将带后缀的别名泄露给 CLIProxy 上游路由。
+- **2026-05-07**：**#1103** GitHub Copilot 现在被视为弃用的兼容性桥接。Dashboard 将 Copilot 从活动的 Identity & Access 部分移至 Deprecated，快速设置不再为新 onboarding 提供 `ghcp`，CLI/help/config 副本将 Copilot 标记为已弃用，现有的 `ccs copilot` / `ghcp` 兼容性路径保持可用以供当前设置使用。
+- **2026-05-07**：**#1189** 无头 settings-profile delegation 现在保留原生 Claude passthrough 参数而不使用 Claude 标志允许列表。明确的 `--channels` 值到达 Claude Code，未来的原生标志可以携带多个相邻值，格式错误的 CCS 自有标志不再吞没下一个原生标志，`--prompt=<text>` 与 `--prompt <text>` 一致地通过无头 delegation 路由。
+- **2026-05-03**：**#1172** 本地 CLIProxy 配置生成现在保持 CPAMC 管理 dashboard 与后端选择对齐。`backend: original` 指向上游 dashboard，`backend: plus` 指向 CCS 维护的 CPAMC fork，`cliproxy.management_panel_repository` 让高级用户覆盖面板仓库，当预期面板源更改时重新生成陈旧的本地 CLIProxy 配置。
+- **2026-04-30**：**#1153** 原生 Claude 启动现在接受通过 CCS 的会话范围的 `--effort low|medium|high|xhigh|max` 覆盖而不改变全局 Claude 设置。CCS 在生成 Claude 前验证无效或缺失的 effort 值，规范接受的 values，保持默认 headless `-p/--prompt` 启动在原生 Claude 上而不是 delegation 解析，保留 CLIProxy/Codex/Droid effort 别名。
+- **2026-04-28**：**#1123** CLIProxy 配额故障转移现在对所有带 CCS 配额获取器的配额可见 OAuth providers 使用 dashboard/手动暂停机制：Antigravity、Claude、Codex、Gemini CLI 和 GitHub Copilot。当存在健康回退时，CCS 将耗尽账户 token 从活动的 `auth/` 文件夹移至 `auth-paused/`，为 dashboard 可见性标记账户暂停，持久化自动恢复的冷却时间，仍避免自动暂停最后一个可用账户。
+- **2026-04-28**：**#1115** CCS 现在将上游 CLIProxy 会话亲和性作为一级本地托管设置公开。用户可以从 `ccs cliproxy routing affinity` 检查和切换本地 `session-affinity` 加上 TTL，从 `/cliproxy` dashboard 路由卡，以及通过本地 dashboard API。生成的本地 CLIProxy 配置现在持久化 `routing.session-affinity` 和 `routing.session-affinity-ttl`，help/copy 说明 CLIProxy 偏好显式会话或线程标识符而不是回退到提示历史哈希，远程会话亲和性管理保持明确不支持，直到上游管理 API 公开超过 `routing.strategy` 的内容。
+- **2026-04-24**：**#1065** 本地 CLIProxy Plus 作为明确的可选后端再次可用，通过社区维护的 `kaitranntt/CLIProxyAPIPlus` fork。CCS 保持 `original` 作为默认后端，不再将保存的 `backend: plus` 配置降级到 `original`，将 Plus 发布查找更新到维护的 fork，并将 Plus 记录为 plus-only providers 的定向路径。
+- **2026-04-21**：CLIProxy 配额故障转移现在在存在健康回退时将耗尽的 Claude 和 Antigravity 账户隔离出活动轮换。CCS 在启动之间持久化这些配额触发的暂停，在配置的冷却窗口后自动恢复它们，并故意避免自动暂停最后一个可用账户，因此单账户设置仍然优雅降级而不是硬锁定自己。
+- **2026-04-20**：**#1051** 浏览器自动化现在对新安装和尚未携带明确浏览器设置的升级版本默认安全关闭。CCS 将 Claude Browser Attach 和 Codex Browser Tools 都更改为以 `enabled: false` 和 `policy: manual` 启动，在升级时将缺失的浏览器策略规范化回 `manual`，保留明确的现有启用，并更新状态/help/docs，以便浏览器工具永不暗示自动暴露，除非用户选择加入。
+- **2026-04-19**：**#1051** 浏览器工具现在有明确的暴露策略而不是仅粗粒度启用切换。CCS 为 Claude Browser Attach 和 Codex Browser Tools 添加 `browser.<lane>.policy`（`auto` 或 `manual`），通过 `ccs browser policy`、`ccs browser enable` 和 `ccs browser disable` 公开 CLI 优先策略控制，并添加单次启动覆盖 `--browser` 和 `--no-browser`，以便用户可以强制浏览器工具开启或关闭而无需编辑保存的配置。
+- **2026-04-19**：**#1049** 浏览器设置现在有真正的补救路径而不是仅状态/doctor-only 指导。CCS 添加 `ccs browser setup` 作为 Claude Browser Attach 的主要一键流程，在适当的地方将托管浏览器路径输出缩短为 home-relative 显示路径，并更新浏览器就绪指导以首先指向用户设置，同时保持浏览器 doctor 默认只读。
+- **2026-04-18**：**#1038** 旧版 OpenAI 兼容 provider 写入不再在下一次 `ccs cliproxy restart` 时自毁。CCS 现在在 CLIProxy 配置重新生成期间保留 AI-provider 管理的顶级部分如 `openai-compatibility`，旧版 `openai-compat` manager 现在只重写自己的 YAML 部分而不是转储整个文件并剥离生成的版本头。回归覆盖现在证明旧版辅助工具保持生成的标题完整，OpenAI 兼容连接器在重新生成中幸免。
+- **2026-04-16**：**#1030** 浏览器自动化现在是一级 CCS 表面而不是仅 env-only/运行时功能。CCS 添加 `ccs help browser`、`ccs browser status` 和 `ccs browser doctor`；用于 Claude Browser Attach 和 Codex Browser Tools 的专用 `Settings -> Browser` dashboard 选项卡；`~/.ccs/config.yaml` 中的新 `browser` 部分；用于 attach 模式 Chrome 会话的明确就绪/后续步骤消息；以及 Codex UI 指导，将托管的 `ccs_browser` 条目标记为 CCS 自有并将浏览器设置重定向远离通用 MCP 编辑器。
+- **2026-04-15**：**#969** 本地 CLIProxy 引导不再依赖正常 dashboard 和运行时启动期间的实时 GitHub 可达性。CCS 现在跳过标准 CLIProxy 引导路径上的隐藏自动更新查找，当服务启动需要本地未安装的二进制时，用明确的 `ccs cliproxy install` 指导快速失败，并保持 `ccs config` 能够在受限模式下打开 dashboard 而不是在阻塞的版本下载后面停滞。
+- **2026-04-15**：**#1010** 远程 dashboard 认证指导现在明确说明 Docker 边界。readonly banner、远程登录/设置卡和 dashboard-auth 文档现在告诉用户集成 Docker 部署将配置保存在运行中的 `ccs-cliproxy` 容器卷内，因此 `ccs config auth setup` 必须在那里运行而不是在外层 host shell 中运行。
+- **2026-04-14**：**#991** CCS 现在自动将通过使用 OpenAI 兼容端点的 Claude 目标 settings profiles 路由通过本地 Anthropic 兼容代理，而不是将原始 Anthropic `/v1/messages` 流量直接发送到聊天补全后端。`ccs proxy` 命令现在支持带明确主机绑定、shell 感知激活辅助和更完整的本地运行时 env 契约的 `start`、`status`、`activate` 和 `stop`。代理表面现在公开 `GET /`、`/health`、`/v1/models` 和 `/v1/messages`，将路由决策记录到 CCS 结构化日志，支持 Anthropic 图片块加上请求时 `profile:model` 覆盖，并在兼容 profile 路径之上添加配置驱动的场景路由（`background`、`think`、`longContext`、`webSearch`）。覆盖现在包括请求路由、速率限制/超时/空上游失败、chunked tool-call 流和断开清理以及现有单元、集成和 e2e 套件。
+- **2026-04-10**：**#765** `/providers` 现在包括用于 API Profiles 的一级 Hugging Face preset。CCS 通过带官方路由器端点 `https://router.huggingface.co/v1` 的现有 OpenAI 兼容 profile 流程公开 Hugging Face Inference Providers，简称 `hf` 默认 profile 名称，以及 dashboard 选择器和 `ccs api create --preset hf` 的 `hf` preset 别名支持。
+- **2026-04-10**：**#944** 图片分析认证就绪状态在合并运行时状态依赖覆盖包含缺失的初始化器值时不再崩溃为原生 Read。CCS 现在在覆盖条目为 `undefined` 时保留默认依赖函数，仍在本地就绪路径中直接读取基于 token 的认证状态，并包括回归覆盖用于之前表面为 `deps.initializeAccounts is not a function` 的缺失初始化器情况。
+- **2026-04-10**：**#945** CCS 现在围绕明确的 `free / pro / ultra / unknown` 模型规范化和保留原始层级 id 如 `g1-pro-tier` 的 Gemini CLI 和 Antigravity 层级信号，用提供者权利证据丰富 Gemini 配额响应，分别分类 `MODEL_CAPACITY_EXHAUSTED` 与认证/权利失败，修复 Antigravity CLI 配额表以便实时配额派生的层级不再回退到陈旧的 `unknown`，将 Gemini 层级 id 添加到 CLI 配额输出，将 Gemini Flash Lite 分组扩展到覆盖 `gemini-3.1-flash-lite-preview`，并允许 Gemini 账户表面呈现与 Antigravity 相同的层级徽章语义。
+- **2026-04-09**：**#938** Cliproxy 模型路由现在为重叠的 OAuth 后端公开后端固定短前缀。CCS 修复 Gemini CLI（`gcli`）和 Antigravity（`agy`）的托管 OAuth auth 文件前缀，用显示未前缀模型是否安全、阴影或仅前缀的路由提示丰富 `/api/cliproxy/catalog`，升级 `ccs cliproxy catalog` 加上交互式变体模型选择器以公开固定名称，并更新 `ccs config` Cliproxy 模型选择 UI，以便用户可以在保存设置之前看到首选调用名称和当前有效后端。
+- **2026-04-08**：**#931** `/cliproxy` 模型选择器现在从 CLIProxy 管理模型定义获取其 provider 目录，而不是将 UI 目录文件作为下拉源的真实来源。CCS 现在通过 `/api/cliproxy/catalog` 刷新 Gemini、Codex、Claude、Antigravity、Qwen、iFlow、Kiro、GitHub Copilot 和 Kimi 的实时模型定义，在那些上游模型之上叠加 CCS 专用 preset/默认元数据，保持 `/api/cliproxy/models` 作为实时可用性 feed，并在代理不可用时回退到缓存/静态目录，以便 dashboard 永远不会空白。
+- **2026-04-08**：**#929** 图片分析硬化现在使托管 `ccs-image-analysis` MCP 路径在健康的 Claude 目标启动上成为权威，抑制陈旧的 CCS 管理的图片 `Read` hooks 而不是让它们与 MCP 竞争，仅在 MCP 配置失败时保留旧版 hook 作为兼容性回退，并将自愈扩展到 dashboard 配置加上 `ccs doctor --fix`，以便陈旧 hook 文件和缺失的隔离 MCP 同步自动修复。
+- **2026-04-07**：CLIProxy 路由策略现在是一级 CCS 表面。用户可以从 `ccs cliproxy routing` 检查和明确更改 `round-robin` vs `fill-first`，并从原生 `/cliproxy` dashboard 卡。本地模式现在将选定的启动默认值持久化到 CCS 管理的 CLIProxy 配置生成，而未触及的安装保持在 `round-robin`。CCS 有意不从账户组合推断策略。
+- **2026-04-07**：**#926** CCS 现在拥有一级结构化日志层在 `src/services/logging/` 下，`~/.ccs/config.yaml` 中的有界顶级 `logging` 配置部分，用于 `~/.ccs/logs/` 下 CCS 自有日志的自动轮换/保留，原生 `/api/logs` dashboard 端点，dashboard 后端的请求跟踪，以及用于浏览最近条目和编辑保留设置的专用 `System -> Logs` dashboard 路由。旧版 CLIProxy 错误文件仍然可用作为标记的旧版来源，而不是作为主要日志模型。
+- **2026-04-06**：dashboard 登录表面现在区分真实登录和主机设置要求。远程/IP 访问者在 dashboard 认证禁用或不完整时不再看到误导性的空白凭证表单；他们现在得到明确指导，说明 CCS 没有默认凭证，应该在主机上用 `ccs config auth setup` 启用，或者在同一台机器上使用时通过 localhost 重新打开。密码字段现在包含显示/隐藏切换，页面在登录前公开明确的浅色/深色主题切换。
+- **2026-04-04**：GitHub README 从文本墙参考转储减少为更短的转换表面，保持 hero、proof 截图和快速启动命令，同时将更深入的安装、provider、功能和 CLI 参考内容委托给 `docs.ccs.kaitran.ca`。文档站点现在包括专用的 `Product Tour` 页面用于截图引导的演练。
+- **2026-04-05**：**#912 #913 #914** Kiro 认证现在与当前 CLIProxyAPIPlus 契约对齐。CCS 为默认 `ccs kiro --auth` 流程自动选择 Builder ID 路径，而不是在上游 Builder ID vs IDC 选择器上停滞，基于回调的 Kiro 认证方法可以通过将粘贴的重定向 URL 重放到本地回调服务器来使用 `--paste-callback`，CLI 现在支持通过 `--kiro-auth-method idc` 以及 `--kiro-idc-start-url`、`--kiro-idc-region` 和 `--kiro-idc-flow` 的 IDC 认证。
+- **2026-04-03**：CCS CLI help 和完成 UX 已刷新。Root help 现在更短且面向任务，`ccs help <topic|command>` 路由到主题感知帮助，shell 完成现在委托给隐藏的 `ccs __complete` 后端。
+- **2026-04-02**：第三方图片和 PDF 分析现在遵循与 WebSearch相同的一级本地工具模型。CCS 将 `ccs-image-analysis` 配置为托管 MCP 工具，将请求直接路由到 provider 范围的 CCS 端点如 `/api/provider/agy/v1/messages`，在 `~/.ccs/prompts/image-analysis/` 下保持可编辑的提示模板，并将旧版 `Read` hook 降级为尽力兼容性回退。启动现在保持非致命并在托管运行时无法准备时回退到原生 `Read`。
+- **2026-04-01**：`Compatible -> Codex CLI` dashboard 现在公开手动 long-context 控制用于 `model_context_window` 和 `model_auto_compact_token_limit`。CCS 直接读取和修补那些上游 Codex 配置 key，添加官方指导说明 GPT-5.4 长上下文是实验性的和可选的，并保持行为手动唯一，因此 dashboard 永远不会为用户自动填充或自动保存长上下文值。
+- **2026-03-30**：**#862** 第三方 WebSearch 现在使用一级 CCS 托管 MCP 工具路径而不是依赖被拒绝的原生 Anthropic `WebSearch` 调用作为正常 UX。CCS 将 `ccs-websearch` 配置到 `~/.claude.json`，在需要时同步到隔离账户配置，在第三方启动上抑制原生 `WebSearch`，保留 provider 顺序 `Exa -> Tavily -> Brave -> DuckDuckGo -> 旧版 CLI 回退`，并保持旧版 hook 运行时仅作为共享 provider 管道和兼容性回退。卸载清理现在还移除托管 WebSearch MCP 运行时。
+- **2026-03-28**：**#773** CCS 现在提供专用的 `Compatible -> Codex CLI` dashboard 路由与真正的分屏控制中心。该页面检测本地 Codex 二进制，保持 overview/docs 指导，并添加用于用户拥有的 `~/.codex/config.toml` 层的引导编辑器：顶级运行时默认值、项目信任、profiles、模型 providers、MCP servers 和支持的 feature flags。结构化保存有意地规范化和删除注释，因此原始编辑器仍然是保真度逃生通道。后续修复添加了即时原始快照刷新、刷新/丢弃恢复过期原始草稿、脏原始编辑器保护结构化控制、项目信任路径验证、不可读配置文件的只读处理、不支持的上游值的保留如细粒度 `approval_policy`，以及功能重置为默认值支持。CCS 仍警告瞬态运行时覆盖如 `codex -c key=value` 和 `CCS_CODEX_API_KEY` 可能改变有效行为而不持久化到文件。
+- **2026-03-27**：WebSearch dashboard 卡片现在内联管理 Exa、Tavily 和 Brave API keys，而不是依赖单独的手动 env 步骤。CCS 通过 `global_env` 存储那些 secrets，在 `/api/websearch` 中反映掩码 key 状态，并在 WebSearch 状态流程中将 dashboard 管理的 keys 计为就绪。
+- **2026-03-27**：**#812** CCS 现在包含一级 `ccs docker` 命令套件用于自托管集成 Dashboard + CLIProxy 堆栈。CLI 可以本地或通过 SSH 到远程 `--host` 暂存捆绑的 Docker 资产，报告 compose/supervisor 状态，流式传输 CCS 或 CLIProxy 日志，并在不依赖临时部署脚本的情况下运行容器内更新流程。
+- **2026-03-24**：官方 Claude Channels 现在遵循 Anthropic 的实际运行时契约。CCS 阻止自动启用，除非 Bun 可用、Claude Code 验证为 v2.1.80+ 且 `claude.ai` 认证已验证；将 `--allow-dangerously-skip-permissions` 视为明确覆盖；将 Telegram/Discord bot tokens 保存在 Claude 共享的 `~/.claude/channels/` 状态（或官方 `*_STATE_DIR` 覆盖）中；并在 dashboard/CLI 状态流程中升级 Bun/版本/认证/状态范围指导、保存失败时更安全的 token 草稿保留以及非 macOS iMessage 切换（已选时可以关闭）中。
+- **2026-03-23**：不暴露可靠 email 的 CLIProxy providers 不再在首次认证时需要用户提供的昵称。CCS 现在为 Kiro/Copilot 样式流程派生稳定的内部账户标识符，保留后续重命名支持，围绕该标识符硬化账户发现/注册表同步，并更新 AI Provider CRUD 以使用稳定的条目 ID 而不是 dashboard 列表索引。
+- **2026-03-23**：敏感 dashboard 管理路由现在在 dashboard 认证禁用时失败关闭到 localhost 仅限访问。远程访问在 `ccs config auth setup` 后仍然可用，但 AI Provider 管理、CLIProxy 认证/状态辅助和其他写能力设置端点不再信任未经认证的非回环请求。
+- **2026-03-19**：**#649** CCS 将 CLIProxy provider-key 创作拆分到专用 `CLIProxy -> AI Providers` dashboard 路由。`/cliproxy` 现在保持专注于 OAuth 账户和变体，`/cliproxy/ai-providers` 拥有 Gemini/Codex/Claude/Vertex/OpenAI 兼容 key 管理，`/providers` 保留用于 CCS 原生 API Profiles。
+- **2026-03-18**：**#755** 市场刷新不再跨隔离实例重用一个共享的 `known_marketplaces.json`。CCS 现在保持市场 payload 目录共享，同时调和 per-instance 市场元数据，以便 Claude Code 验证对于交替或并发 profiles 成功，包括 Windows 复制回退。
+- **2026-03-17**：弃用面向用户的 GLMT 发现在 CLI help、完成、presets 和文档中。现有 `glmt` profiles 现在通过将旧版代理设置规范化为直接 GLM 端点的兼容性路径运行。
+- **#748**：API profile 创建现在通过将高级 presets 折叠在明确切换后面来保持 provider 选择紧凑，缩小选择器卡片以便表单字段保持视觉主要，并为 `llama.cpp` 提供专用 provider logo。
+- **#744**：API profile 创建现在在带滚动回退的水平轨道中保持特色 providers，将 Anthropic Direct API 移到最后，重用共享 Claude logo，并将自定义端点入口点与高级模板发现分开。
+- **#724**：Codex 启动现在是免费计划安全的。CCS 默认新 Codex 会话到跨计划模型，并对不支持的仅付费模型使用运行时回退处理，而不重写保存的 dashboard 设置。
+- **#737**：Cursor、Copilot 和 CLIProxy 中的 dashboard 模型选择器现在对大模型目录使用带自动聚焦和明确无结果状态的可搜索组合框。
+- **#736**：`ccs config` 现在支持通过 `--host` 的明确 dashboard 绑定主机，并在有效绑定是非回环时公开远程访问警告和可达 URL。
+- **#1121**：使用分析定价现在在成本派生前刷新缓存的 models.dev 元数据，保持 CCS 静态定价作为离线回退，并在 CLIProxy/原生运行时细分中携带 provider 身份，以便订阅支持的 providers 不继承付费 API 定价。
 
-### Maintainability Hardening Kickoff
+### 可维护性硬化启动
 
-- Issue owner: Stream D for **#542**
-- Automated inventory command: `bun run report:hardening`
-- Generated report artifacts:
+- Issue 负责人：Stream D 代表 **#542**
+- 自动化清单命令：`bun run report:hardening`
+- 生成的报告产物：
   - `docs/reports/hardening-inventory.json`
   - `docs/reports/hardening-inventory.md`
-- Debt burndown tracker: [Hardening Debt Burndown Tracker](./hardening-debt-burndown.md)
+- 债务消除追踪器：[Hardening Debt Burndown Tracker](./hardening-debt-burndown.md)
 
-### Remaining Large Files (Acceptable)
+### 剩余大文件（可接受）
 
-**CLI** (complex core logic):
-- `model-pricing.ts` (676 lines) - Data file
-- `glmt-proxy.ts` (675 lines) - Legacy internal compatibility proxy
-- `cliproxy-executor.ts` (666 lines) - Core execution
-- `ccs.ts` (596 lines) - Entry point
+**CLI**（复杂核心逻辑）：
+- `model-pricing.ts`（676 行）- 数据文件
+- `glmt-proxy.ts`（675 行）- 旧版内部兼容性代理
+- `cliproxy-executor.ts`（666 行）- 核心执行
+- `ccs.ts`（596 行）- 入口点
 
-**UI** (external/shadcn):
-- `components/ui/sidebar.tsx` (674 lines) - shadcn component
+**UI**（外部/shadcn）：
+- `components/ui/sidebar.tsx`（674 行）- shadcn 组件
 
 ---
 
-## GitHub Issues Backlog
+## GitHub Issues 待办
 
-### Critical (Blocking Users)
+### 关键（阻塞用户）
 
-| Issue | Title | Type |
+| Issue | 标题 | 类型 |
 |-------|-------|------|
-| #158 | AGY not working - Missing API Key - Run /login | bug |
-| #155 | Invalid JSON payload error with Gemini/Antigravity | bug |
-| #124 | Incorrect model ID for Claude 3.5 Sonnet (Thinking) | bug |
+| #158 | AGY 不工作 - 缺少 API Key - 运行 /login | bug |
+| #155 | Gemini/Antigravity 的无效 JSON payload 错误 | bug |
+| #124 | Claude 3.5 Sonnet (Thinking) 的模型 ID 错误 | bug |
 
-### High Priority (Features)
+### 高优先级（功能）
 
-| Issue | Title | Type | Status |
+| Issue | 标题 | 类型 | 状态 |
 |-------|-------|------|--------|
-| #142 | Configure with available CLIProxyAPI | enhancement | **COMPLETE** (v7.1) |
-| #157 | Support for Kiro auth from CLIProxyAPIPlus | enhancement | **COMPLETE** (v7.2) |
-| #123 | Add More Models | enhancement | Ongoing |
-| #114 | OpenCode Zen Free model + Auto Rotation API Key | enhancement | - |
+| #142 | 使用可用 CLIProxyAPI 配置 | enhancement | **已完成**（v7.1） |
+| #157 | 支持 CLIProxyAPIPlus 的 Kiro 认证 | enhancement | **已完成**（v7.2） |
+| #123 | 添加更多模型 | enhancement | 进行中 |
+| #114 | OpenCode Zen 免费模型 + 自动轮换 API Key | enhancement | - |
 
-### Medium Priority
+### 中优先级
 
-| Issue | Title | Type |
+| Issue | 标题 | 类型 |
 |-------|-------|------|
-| #137 | CCS Cannot Connect to IDE, but Native Claude Works | support |
-| #89 | Add Claude Code CLI flag passthrough for delegation | enhancement |
-| #659 | Comprehensive Vietnamese i18n for dashboard | enhancement |
+| #137 | CCS 无法连接到 IDE，但原生 Claude 可以 | support |
+| #89 | 添加 Claude Code CLI 标志 passthrough 用于 delegation | enhancement |
+| #659 | Dashboard 全面的越南语 i18n | enhancement |
 
-### Low Priority / Questions
+### 低优先级 / 问题
 
-| Issue | Title | Type |
+| Issue | 标题 | 类型 |
 |-------|-------|------|
-| #156 | Configure API for Zed IDE | docs |
-| #140 | Do we support ampcode? | question |
-| #111 | Factory droid CLI support | enhancement |
-| #103 | /context command returns incorrect context | invalid |
+| #156 | 为 Zed IDE 配置 API | docs |
+| #140 | 我们支持 ampcode 吗？ | question |
+| #111 | Factory droid CLI 支持 | enhancement |
+| #103 | /context 命令返回错误的上下文 | invalid |
 
 ---
 
-## Future Roadmap
+## 未来路线图
 
-### Priority 1: Multiple CLIProxyAPI Instances
+### 优先级 1：多个 CLIProxyAPI 实例
 
-Support connecting to multiple CLIProxyAPI servers simultaneously.
+同时支持连接到多个 CLIProxyAPI 服务器。
 
-**Use Cases**:
-- Load balancing across multiple proxy servers
-- Failover when primary server unavailable
-- Geographic distribution for latency optimization
-- Separate proxies for different provider groups
+**用例**：
+- 跨多个代理服务器负载均衡
+- 主服务器不可用时故障转移
+- 地理分布以优化延迟
+- 不同 provider 组的单独代理
 
-**Proposed Config**:
+**建议配置**：
 ```yaml
 cliproxy:
   instances:
@@ -176,21 +176,21 @@ cliproxy:
       weight: 20
     failover:
       url: http://backup.example.com:8000
-      priority: 2  # Only if primary/secondary fail
+      priority: 2  # 仅在主/次失败时
   strategy: weighted-round-robin
 ```
 
-### Priority 2: Native Git Worktree Support
+### 优先级 2：原生 Git Worktree 支持
 
-Opt-in automatic git worktree management for features/issues.
+用于 features/issues 的可选自动 git worktree 管理。
 
-**Use Cases**:
-- Automatic worktree creation when starting issue
-- Isolation of feature development
-- Easy cleanup after merge
-- Integration with GitHub issues
+**用例**：
+- 开始 issue 时自动创建 worktree
+- 特性开发的隔离
+- 合并后轻松清理
+- 与 GitHub issues 集成
 
-**Proposed Settings**:
+**建议设置**：
 ```yaml
 worktrees:
   enabled: true
@@ -200,72 +200,72 @@ worktrees:
   naming: "{issue-number}-{short-title}"
 ```
 
-### Priority 3: Enhanced Model Support
+### 优先级 3：增强模型支持
 
-- **#123**: Expand model catalog with new releases
-- **#124**: Fix Claude 3.5 Sonnet (Thinking) model ID
-- **#114**: OpenCode Zen free model + API key rotation
+- **#123**：用新版本扩展模型目录
+- **#124**：修复 Claude 3.5 Sonnet (Thinking) 模型 ID
+- **#114**：OpenCode Zen 免费模型 + API key 轮换
 
-### Priority 4: IDE Integration
+### 优先级 4：IDE 集成
 
-- **#137**: Debug CCS-to-IDE connection issues
-- **#156**: Zed IDE configuration documentation
-- **#140**: Investigate ampcode compatibility
-- **#111**: Factory droid CLI support assessment
+- **#137**：调试 CCS 到 IDE 连接问题
+- **#156**：Zed IDE 配置文档
+- **#140**：调查 ampcode 兼容性
+- **#111**：Factory droid CLI 支持评估
 
-### Priority 5: Authentication Enhancements
+### 优先级 5：认证增强
 
-- **#158**: Fix AGY OAuth flow
-- **#157**: ~~Add Kiro auth support from CLIProxyAPIPlus~~ **COMPLETE** (v7.2)
-- GitHub Copilot (ghcp) Device Code flow **COMPLETE** (v7.2, now deprecated compatibility)
-- Hybrid quota management **COMPLETE** (v7.14)
+- **#158**：修复 AGY OAuth 流程
+- **#157**：~~添加 CLIProxyAPIPlus 的 Kiro 认证支持~~ **已完成**（v7.2）
+- GitHub Copilot (ghcp) Device Code 流程 **已完成**（v7.2，现已弃用兼容性）
+- 混合配额管理 **已完成**（v7.14）
 
 ---
 
-## Milestones
+## 里程碑
 
-| Milestone | Status | Target |
+| 里程碑 | 状态 | 目标 |
 |-----------|--------|--------|
-| Modularization (Phases 1-9) | COMPLETE | - |
-| Remote CLIProxy Support (#142) | COMPLETE | v7.1 |
-| Kiro + GitHub Copilot OAuth (#157) | COMPLETE, Copilot now deprecated compatibility | v7.2 |
-| Hybrid Quota Management | COMPLETE | v7.14 |
-| Docker Support (PR #345) | COMPLETE | v7.23 |
-| Image Analysis Hook | COMPLETE | v7.34 |
-| Third-Party Tool Integration | COMPLETE | v7.39 |
-| Critical Bug Fixes (#158, #155, #124) | PLANNED | Q1 2026 |
-| Multiple CLIProxyAPI Instances | PLANNED | Q1 2026 |
-| Git Worktree Support | PLANNED | Q2 2026 |
-| Enhanced Model Support | PLANNED | Q2 2026 |
+| 模块化（阶段 1-9） | 完成 | - |
+| 远程 CLIProxy 支持（#142） | 完成 | v7.1 |
+| Kiro + GitHub Copilot OAuth（#157） | 完成，Copilot 现为弃用兼容性 | v7.2 |
+| 混合配额管理 | 完成 | v7.14 |
+| Docker 支持（PR #345） | 完成 | v7.23 |
+| 图片分析 Hook | 完成 | v7.34 |
+| 第三方工具集成 | 完成 | v7.39 |
+| 关键 Bug 修复（#158、#155、#124） | 计划 | Q1 2026 |
+| 多个 CLIProxyAPI 实例 | 计划 | Q1 2026 |
+| Git Worktree 支持 | 计划 | Q2 2026 |
+| 增强模型支持 | 计划 | Q2 2026 |
 
 ---
 
-## Success Criteria
+## 成功标准
 
-All criteria achieved:
+所有标准已达成：
 
-- [x] Files under 200 lines (except documented exceptions)
-- [x] Every directory has barrel export
-- [x] No circular dependencies
-- [x] TypeScript strict mode passing
-- [x] 90%+ test coverage
-- [x] Clear domain boundaries
-- [x] Consistent naming conventions
+- [x] 200 行以下的文件（除文档化例外）
+- [x] 每个目录有 barrel export
+- [x] 无循环依赖
+- [x] TypeScript 严格模式通过
+- [x] 90%+ 测试覆盖率
+- [x] 清晰的领域边界
+- [x] 一致的命名约定
 
-## Historical Maintainability Gate (Retired)
+## 历史可维护性门禁（已弃用）
 
-This section is preserved as historical context from the original Issue `#539` work.
+本节保留作为原始 Issue `#539` 工作的历史上下文。
 
-- The maintainability baseline gate is no longer part of the active CCS workflow.
-- Current contributor and CI gates are documented in `CLAUDE.md`, `CONTRIBUTING.md`, and the GitHub workflow files.
-- Do not assume `maintainability:baseline` or `maintainability:check` exist unless they are reintroduced in a future follow-up.
+- 可维护性基线门禁不再属于活动 CCS 工作流的一部分。
+- 当前的贡献者和 CI 门禁记录在 `CLAUDE.md`、`CONTRIBUTING.md` 和 GitHub 工作流文件中。
+- 不要假设 `maintainability:baseline` 或 `maintainability:check` 存在，除非在未来后续中重新引入。
 
 ---
 
-## Related Documentation
+## 相关文档
 
-- [Codebase Summary](./codebase-summary.md) - Current structure
-- [Code Standards](./code-standards.md) - Patterns and conventions
-- [System Architecture](./system-architecture/index.md) - Architecture diagrams
-- [Hardening Debt Burndown Tracker](./hardening-debt-burndown.md) - Legacy shim + sync-fs debt tracking
-- [CLAUDE.md](../CLAUDE.md) - AI development guidance
+- [Codebase Summary](./codebase-summary.md) - 当前结构
+- [Code Standards](./code-standards.md) - 模式和约定
+- [System Architecture](./system-architecture/index.md) - 架构图
+- [Hardening Debt Burndown Tracker](./hardening-debt-burndown.md) - 旧版 shim + 同步-fs 债务跟踪
+- [CLAUDE.md](../CLAUDE.md) - AI 开发指导

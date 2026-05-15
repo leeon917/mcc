@@ -1,45 +1,45 @@
-# Hardening Debt Burndown Tracker
+# 硬化债务消除追踪器
 
-Last Updated: 2026-02-12
-Owner: Stream D (`#542`)
+最后更新：2026-02-12
+负责人：Stream D（`#542`）
 
-## Scope
+## 范围
 
-Maintainability hardening groundwork with low-risk changes:
+可维护性硬化基础工作，低风险更改：
 
-- Inventory legacy shims/compatibility markers
-- Inventory sync filesystem usage, especially runtime hotpaths
-- Incrementally migrate hotpath sync I/O to async I/O with tests
+- 盘点旧版 shims/兼容性标记
+- 盘点同步文件系统使用情况，特别是运行时热路径
+- 增量将热路径同步 I/O 迁移到异步 I/O 并测试
 
-## How to Measure
+## 如何测量
 
-Run:
+运行：
 
 ```bash
 bun run report:hardening
 ```
 
-Generated artifacts:
+生成的产物：
 
 - `docs/reports/hardening-inventory.json`
 - `docs/reports/hardening-inventory.md`
 
-## Kickoff Baseline (Issue #542 Stream D)
+## 启动基线（Issue #542 Stream D）
 
-The current baseline is sourced from `docs/reports/hardening-inventory.json` after running `bun run report:hardening`.
-Baseline captured: `2026-02-12`.
+当前基线来自运行 `bun run report:hardening` 后的 `docs/reports/hardening-inventory.json`。
+基线捕获日期：`2026-02-12`。
 
-| Metric | Baseline |
+| 指标 | 基线 |
 |---|---:|
-| Sync fs occurrences (all) | 835 |
-| Sync fs files affected (all) | 100 |
-| Sync fs occurrences (runtime hotpaths) | 724 |
-| Sync fs files affected (runtime hotpaths) | 89 |
-| Legacy shim markers | 131 |
-| Legacy shim files affected | 56 |
+| 同步 fs 出现次数（全部） | 835 |
+| 受影响的同步 fs 文件（全部） | 100 |
+| 同步 fs 出现次数（运行时热路径） | 724 |
+| 受影响的同步 fs 文件（运行时热路径） | 89 |
+| 旧版 shim 标记 | 131 |
+| 受影响的旧版 shim 文件 | 56 |
 
-## Initial Async I/O Migration Log
+## 初始异步 I/O 迁移日志
 
-| Date | Area | Change | Safety Notes |
+| 日期 | 领域 | 更改 | 安全说明 |
 |---|---|---|---|
-| 2026-02-12 | `src/web-server/jsonl-parser.ts` | Migrated `parseProjectDirectory()` directory listing from sync `readdirSync` to async `fs.promises.readdir` | Existing behavior kept (same filtering/fallback); covered by `tests/unit/jsonl-parser.test.ts` |
+| 2026-02-12 | `src/web-server/jsonl-parser.ts` | 将 `parseProjectDirectory()` 目录列表从同步 `readdirSync` 迁移到异步 `fs.promises.readdir` | 保持现有行为（相同的过滤/回退）；由 `tests/unit/jsonl-parser.test.ts` 覆盖 |

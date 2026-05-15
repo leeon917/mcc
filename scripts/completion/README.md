@@ -1,126 +1,125 @@
-# Shell Completion for CCS
+# CCS Shell 补全
 
-Tab completion for CCS commands, subcommands, profiles, and flags.
+CCS 命令、子命令、profiles 和 flags 的 Tab 补全。
 
-The completion scripts are thin adapters over the hidden `ccs __complete` backend so
-all supported shells stay aligned with the same command graph.
+补全脚本是隐藏的 `ccs __complete` 后端的轻量适配器，因此所有支持的 shell 都与同一命令图保持一致。
 
-**Supported Shells:** Bash, Zsh, Fish, PowerShell
+**支持的 Shell：** Bash、Zsh、Fish、PowerShell
 
-## Features
+## 功能
 
-- Complete profile names (both settings-based and account-based)
-- Complete root commands, help topics, provider shortcuts, and command flags
-- Complete `ccs auth` and `ccs api` lifecycle subcommands
-- Context-aware: suggests relevant options based on current command
+- 补全 profile 名称（基于 settings 的和基于 account 的）
+- 补全根命令、帮助主题、provider 快捷方式和命令 flags
+- 补全 `ccs auth` 和 `ccs api` 生命周期子命令
+- 上下文感知：根据当前命令建议相关选项
 
-## Quick Install (Recommended)
+## 快速安装（推荐）
 
 ```bash
 ccs --shell-completion
 ```
 
-This will:
-- Auto-detect your shell
-- Copy completion files to `~/.ccs/completions/`
-- Configure your shell profile with proper comment markers
-- Show instructions to activate
+这将：
+- 自动检测你的 shell
+- 将补全文件复制到 `~/.ccs/completions/`
+- 使用正确的注释标记配置你的 shell profile
+- 显示激活说明
 
-**Manual shell selection:**
+**手动选择 shell：**
 ```bash
-ccs --shell-completion --bash        # Force bash
-ccs --shell-completion --zsh         # Force zsh
-ccs --shell-completion --fish        # Force fish
-ccs --shell-completion --powershell  # Force PowerShell
+ccs --shell-completion --bash        # 强制 bash
+ccs --shell-completion --zsh         # 强制 zsh
+ccs --shell-completion --fish        # 强制 fish
+ccs --shell-completion --powershell  # 强制 PowerShell
 ```
 
-**Help and verification:**
+**帮助和验证：**
 ```bash
 ccs help completion
 ccs --shell-completion --force
 ```
 
-## Manual Installation
+## 手动安装
 
-Completion files are installed to `~/.ccs/completions/` during `npm install`.
+补全文件在 `npm install` 期间安装到 `~/.ccs/completions/`。
 
 ### Bash
 
-Add to `~/.bashrc` or `~/.bash_profile`:
+添加到 `~/.bashrc` 或 `~/.bash_profile`：
 
 ```bash
 # CCS shell completion
 source ~/.ccs/completions/ccs.bash
 ```
 
-Then reload:
+然后重新加载：
 ```bash
 source ~/.bashrc
 ```
 
 ### Zsh
 
-1. Create completion directory:
+1. 创建补全目录：
    ```zsh
    mkdir -p ~/.zsh/completion
    ```
 
-2. Copy completion file:
+2. 复制补全文件：
    ```zsh
    cp ~/.ccs/completions/ccs.zsh ~/.zsh/completion/_ccs
    ```
 
-3. Add to `~/.zshrc`:
+3. 添加到 `~/.zshrc`：
    ```zsh
    # CCS shell completion
    fpath=(~/.zsh/completion $fpath)
    autoload -Uz compinit && compinit
    ```
 
-4. Reload:
+4. 重新加载：
    ```zsh
    source ~/.zshrc
    ```
 
 ### PowerShell
 
-Add to your PowerShell profile (`$PROFILE`):
+添加到你的 PowerShell profile（`$PROFILE`）：
 
 ```powershell
 # CCS shell completion
 . "$HOME\.ccs\completions\ccs.ps1"
 ```
 
-Then reload:
+然后重新加载：
 ```powershell
 . $PROFILE
 ```
 
 ### Fish
 
-**User installation (recommended)**
+**用户安装（推荐）**
 
-Fish automatically loads completions from `~/.config/fish/completions/`:
+Fish 自动从 `~/.config/fish/completions/` 加载补全：
 
 ```fish
-# Create completion directory if it doesn't exist
+# 创建补全目录（如果不存在）
 mkdir -p ~/.config/fish/completions
 
-# Copy completion script
+# 复制补全脚本
 cp scripts/completion/ccs.fish ~/.config/fish/completions/
 ```
 
-That's it! Fish will automatically load the completion on demand. No need to source or reload.
+就这样！Fish 将自动按需加载补全。无需 source 或重新加载。
 
-**System-wide installation (requires sudo)**
+**系统级安装（需要 sudo）**
 
 ```fish
 sudo cp scripts/completion/ccs.fish /usr/share/fish/vendor_completions.d/
 ```
 
-## Usage Examples
+## 使用示例
 
-### Basic Completion
+### 基本补全
 
 ```bash
 $ ccs <TAB>
@@ -130,7 +129,7 @@ $ ccs help <TAB>
 profiles  providers  completion  targets
 ```
 
-### Context Completion
+### 上下文补全
 
 ```bash
 $ ccs auth show <TAB>
@@ -140,7 +139,7 @@ $ ccs api <TAB>
 create    list      discover  copy    export  import  remove
 ```
 
-### Backend Contract
+### 后端契约
 
 ```bash
 $ ccs __complete --shell bash --current do
@@ -148,82 +147,81 @@ doctor
 docker
 ```
 
-Shell adapters now call the shared CCS completion backend instead of maintaining their own
-copy of the command graph. That means:
-- top-level commands, help topics, and provider shortcuts come from CCS itself
-- dynamic profiles and CLIProxy variants resolve through the real config loaders
-- bash, zsh, fish, and PowerShell stay aligned with the same completion logic
+Shell 适配器现在调用共享的 CCS 补全后端，而非维护自己的命令图副本。这意味着：
+- 顶级命令、帮助主题和 provider 快捷方式来自 CCS 本身
+- 动态 profiles 和 CLIProxy 变体通过真实配置加载器解析
+- bash、zsh、fish 和 PowerShell 与同一补全逻辑保持一致
 
-## Troubleshooting
+## 故障排除
 
 ### Bash
 
-1. Check if completion is loaded:
+1. 检查补全是否已加载：
    ```bash
    complete -p ccs
    ```
-2. Verify the backend directly:
+2. 直接验证后端：
    ```bash
    ccs __complete --shell bash --current "" -- help
    ```
 
 ### Zsh
 
-1. Verify completion system is enabled:
+1. 验证补全系统已启用：
    ```zsh
    autoload -Uz compinit && compinit
    ```
-2. Rebuild the cache if needed:
+2. 必要时重建缓存：
    ```zsh
    rm ~/.zcompdump && compinit
    ```
-3. Verify the backend directly:
+3. 直接验证后端：
    ```zsh
    ccs __complete --shell zsh --current "" -- help
    ```
 
 ### PowerShell
 
-1. Check that the profile exists:
+1. 检查 profile 是否存在：
    ```powershell
    Test-Path $PROFILE
    ```
-2. Verify the backend directly:
+2. 直接验证后端：
    ```powershell
    ccs __complete --shell powershell --current "" -- help
    ```
 
 ### Fish
 
-1. Verify completion file location:
+1. 验证补全文件位置：
    ```fish
    ls ~/.config/fish/completions/ccs.fish
    ```
-2. Test completion manually:
+2. 手动测试补全：
    ```fish
    complete -C'ccs '
    ```
-3. Verify the backend directly:
+3. 直接验证后端：
    ```fish
    ccs __complete --shell fish --current "" -- help
    ```
 
-## Technical Details
+## 技术细节
 
-- Bash uses `complete -F`
-- Zsh uses a custom `_ccs` completion function
-- Fish uses `complete -a` with backend command substitution
-- PowerShell uses `Register-ArgumentCompleter`
-- All four shells now delegate suggestion logic to `ccs __complete`
+- Bash 使用 `complete -F`
+- Zsh 使用自定义 `_ccs` 补全函数
+- Fish 使用 `complete -a` 和后端命令替换
+- PowerShell 使用 `Register-ArgumentCompleter`
+- 所有四个 shell 现在都将建议逻辑委托给 `ccs __complete`
 
-## Contributing
+## 贡献
 
-When adding or changing command surfaces:
-1. Update the shared TypeScript command/completion catalog
-2. Run `bun run validate`
-3. Smoke-check at least one installed shell adapter plus the backend directly
+添加或更改命令表面时：
+1. 更新共享的 TypeScript 命令/补全目录
+2. 运行 `bun run validate`
+3. 至少在一个已安装的 shell 适配器加上直接后端进行冒烟测试
 
-## See Also
+## 另见
 
 - [CCS Documentation](https://github.com/kaitranntt/ccs)
 - [Bash Programmable Completion](https://www.gnu.org/software/bash/manual/html_node/Programmable-Completion.html)

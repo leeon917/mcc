@@ -1,8 +1,8 @@
 # CCS Dashboard UI
 
-React + TypeScript + Vite frontend for the CCS local dashboard.
+React + TypeScript + Vite 前端，用于 CCS 本地 dashboard。
 
-This UI is served by the CCS web server and is accessed via:
+此 UI 由 CCS Web 服务器提供，通过以下方式访问：
 
 ```bash
 ccs config
@@ -10,30 +10,30 @@ ccs config
 
 ---
 
-## Development
+## 开发
 
-From project root:
+从项目根目录运行：
 
 ```bash
 bun run dev
 ```
 
-This starts the CCS server, opens a local browser URL, and prints bind/network details for the dashboard.
-If the runtime bind is reachable beyond loopback, CCS also prints an auth reminder.
+此命令启动 CCS 服务器，打开本地浏览器 URL，并打印 dashboard 的 bind/network 详情。
+如果 runtime bind 可从 loopback 外部访问，CCS 还会打印认证提醒。
 
-For remote device access during development, run:
+远程设备访问开发时，运行：
 
 ```bash
 bun run dev -- --host 0.0.0.0
 ```
 
-For local-only development, run:
+本地开发时运行：
 
 ```bash
 bun run dev -- --host 127.0.0.1
 ```
 
-From `ui/` only (frontend dev server):
+仅在 `ui/` 目录下运行（前端开发服务器）：
 
 ```bash
 cd ui
@@ -42,7 +42,7 @@ bun run dev
 
 ---
 
-## Quality Commands
+## 质量检查命令
 
 ```bash
 cd ui
@@ -56,21 +56,21 @@ bun run test:run
 
 ## i18n
 
-Dashboard localization uses `react-i18next`.
+Dashboard 本地化使用 `react-i18next`。
 
-- Main setup: `ui/src/lib/i18n.ts`
-- Locale helpers: `ui/src/lib/locales.ts`
-- Language switcher: `ui/src/components/layout/language-switcher.tsx`
+- 主配置：`ui/src/lib/i18n.ts`
+- Locale 辅助函数：`ui/src/lib/locales.ts`
+- 语言切换器：`ui/src/components/layout/language-switcher.tsx`
 
-For full architecture, conventions, and locale onboarding, see:
+完整的架构、约定和 locale 接入方式，参见：
 
 - [`../docs/i18n-dashboard.md`](../docs/i18n-dashboard.md)
 
 ---
 
-## Notes
+## 注意事项
 
-- UI locale persistence uses browser localStorage key `ccs-ui-locale`.
-- Current supported locales are managed in `ui/src/lib/locales.ts`.
-- Current locales: `en`, `zh-CN`, `vi`.
-- Fallback locale is English (`en`).
+- UI locale 持久化使用浏览器 localStorage key `ccs-ui-locale`。
+- 当前支持的 locale 在 `ui/src/lib/locales.ts` 中管理。
+- 当前 locale：`en`、`zh-CN`、`vi`。
+- Fallback locale 为英语（`en`）。

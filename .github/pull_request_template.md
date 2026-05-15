@@ -1,31 +1,31 @@
-## Summary
+## 概述
 
-- 
+-
 
-## Testing
+## 测试
 
-Use what applies. If you skipped something, add a short note instead of forcing it.
+使用相关选项。如果跳过了某项，请添加简短说明而不是强行填写。
 
 - [ ] `bun run format && bun run lint:fix && bun run validate`
-- [ ] `bun run validate:ci-parity` before requesting review
-- [ ] `bun run test:e2e` if this PR touches command routing, proxy flows, or workflow/release logic
-- [ ] `cd ui && bun run validate` if UI changed
-- [ ] Not run
+- [ ] 请求 review 前运行 `bun run validate:ci-parity`
+- [ ] 如果此 PR 涉及命令路由、代理流程或工作流/发布逻辑，则运行 `bun run test:e2e`
+- [ ] 如果 UI 有变化：`cd ui && bun run validate`
+- [ ] 未运行
 
-## Checklist
+## 检查清单
 
-Check what applies. Not every item is relevant for every PR.
+勾选相关选项。并非每个 PR 都需要所有项目。
 
-- [ ] Base branch is `dev` unless this is an approved hotfix
-- [ ] Branch name follows `feat/*`, `fix/*`, `docs/*`, or approved hotfix naming
-- [ ] Relevant `--help` output updated if CLI behavior changed
-- [ ] Tests added or updated if behavior changed
-- [ ] README or local docs updated if user-facing behavior changed
-- [ ] If a check failed, the PR body explains what failed and what changed to fix it
-- [ ] No secrets, tokens, or private config data are included
+- [ ] 基础分支是 `dev`，除非是已批准的热修复
+- [ ] 分支名遵循 `feat/*`、`fix/*`、`docs/*` 或已批准的热修复命名
+- [ ] 如果 CLI 行为有变化，更新相应的 `--help` 输出
+- [ ] 如果行为有变化，添加或更新测试
+- [ ] 如果用户面向的行为有变化，更新 README 或本地文档
+- [ ] 如果检查失败，PR 正文需说明失败原因和修复措施
+- [ ] 不包含 secrets、tokens 或私人配置数据
 
-## Docs Impact
+## 文档影响
 
-Docs impact: `none | minor | major`
+文档影响：`none | minor | major`
 
-Action: `no update needed` or describe what doc was updated
+操作：`no update needed` 或描述更新的文档

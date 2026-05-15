@@ -1,112 +1,113 @@
-# Dashboard Authentication CLI
+# Dashboard 认证 CLI
 
-Last Updated: 2026-05-05
+最后更新：2026-05-05
 
-CLI commands for managing CCS dashboard authentication.
+用于管理 CCS dashboard 认证的 CLI 命令。
 
-## Overview
+## 概述
 
-The CCS dashboard (`ccs config`) can be protected with username/password authentication. This is useful whenever the dashboard is reachable from another device, including when the runtime's default bind is network-accessible or when you explicitly bind it beyond loopback with `ccs config --host 0.0.0.0`.
+CCS dashboard（`ccs config`）可以用用户名/密码认证保护。当 dashboard 可从另一台设备访问时，这很有用，包括运行时默认绑定是网络可访问的，或者当您使用 `ccs config --host 0.0.0.0` 明确绑定到回环之外时。
 
-Authentication is **disabled by default** for backward compatibility. Use the CLI to configure and enable it.
+认证**默认禁用**以保持向后兼容性。使用 CLI 配置和启用它。
 
-CCS does **not** ship a default dashboard username or password. When someone opens the dashboard from a non-loopback/IP address before auth is enabled, the UI now shows a setup state instead of an ambiguous login form. The host owner must run `ccs config auth setup`, or the user should switch back to the localhost URL if they are on the same machine.
+CCS **不提供默认的 dashboard 用户名或密码**。当某人从非回环/IP 地址打开 dashboard 且认证未启用时，UI 现在显示设置状态而不是模糊的登录表单。主机所有者必须运行 `ccs config auth setup`，或者如果用户在同一台机器上则应切换回 localhost URL。
 
-Docker note: the integrated `ccs docker` stack stores its config inside the running container volume, not in the outer shell's `~/.ccs`. For Docker deployments, run auth setup inside the container:
+Docker 注意：集成的 `ccs docker` 堆栈将其配置存储在运行中的容器卷内，而不是在外层 shell 的 `~/.ccs` 中。对于 Docker 部署，在容器内运行认证设置：
 
 ```bash
 docker exec -it ccs-cliproxy ccs config auth setup
 ```
 
-When auth stays disabled, CCS now applies a localhost-only fallback on sensitive management endpoints. Remote devices can still open the dashboard UI when you intentionally bind it beyond loopback, but write-capable routes such as AI Provider management and CLIProxy auth/status helpers reject non-loopback requests until you enable dashboard auth.
+当认证保持禁用时，CCS 现在对敏感管理端点应用 localhost 仅限回环的回退。远程设备仍可以在有意绑定到回环之外时打开 dashboard UI，但写能力路由（如 AI Provider 管理和 CLIProxy 认证/状态辅助）在您启用 dashboard 认证之前拒绝非回环请求。
 
-## Account Context Modes (Related Feature)
+## 账户上下文模式（相关功能）
 
-Dashboard auth and account context metadata are separate:
+Dashboard 认证和账户上下文元数据是分开的：
 
-- `dashboard_auth`: protects dashboard access with username/password
-- `accounts.<name>.context_mode/context_group`: controls isolated vs shared account context
-- `accounts.<name>.shared_resource_mode`: controls plugins/commands/skills/agents/settings.json sharing
+- `dashboard_auth`：用用户名/密码保护 dashboard 访问
+- `accounts.<name>.context_mode/context_group`：控制隔离与共享账户上下文
+- `accounts.<name>.shared_resource_mode`：控制 plugins/commands/skills/agents/settings.json 共享
 
-Account context is isolation-first. The recommended two-account route is:
+账户上下文是隔离优先的。推荐的双账户路径是：
 
 ```bash
 ccs auth create work
 ccs auth create personal
+
 ccs work
 ccs personal
 ```
 
-Only enable history sync when both accounts should share local continuity while tokens stay separate:
+仅在两个账户应共享本地连续性而 token 保持分开时启用历史同步：
 
-| Mode | Default | Requirement |
+| 模式 | 默认 | 要求 |
 |------|---------|-------------|
-| `isolated` | Yes | No `context_group` required |
-| `shared` | No (opt-in) | Valid non-empty `context_group` |
+| `isolated` | 是 | 不需要 `context_group` |
+| `shared` | 否（可选加入） | 有效非空 `context_group` |
 
-Shared continuity depth:
+共享连续性深度：
 
-- `standard` (default): shares project workspace context only
-- `deeper` (advanced opt-in): also syncs `session-env`, `file-history`, `shell-snapshots`, `todos`
+- `standard`（默认）：仅共享项目工作区上下文
+- `deeper`（高级可选加入）：还同步 `session-env`、`file-history`、`shell-snapshots`、`todos`
 
-`ccs auth show <profile>` reports credential isolation, shared resource mode, settings sync state, history lane, and whether plain `ccs` currently uses the same resume lane.
+`ccs auth show <profile>` 报告凭证隔离、共享资源模式、设置同步状态、历史通道，以及 plain `ccs` 当前是否使用相同的恢复通道。
 
-Non-bare account profiles share Claude-local resources with native Claude:
+非裸账户 profiles 与原生 Claude 共享 Claude 本地资源：
 
 ```text
 ~/.ccs/instances/<profile>/settings.json -> ~/.ccs/shared/settings.json -> ~/.claude/settings.json
 ```
 
-This keeps ordinary Claude settings, plugins, commands, skills, and agents in sync without copying account tokens. Existing accounts can opt out or back in:
+这使普通 Claude Code 设置、plugins、commands、skills 和 agents 无需复制 account tokens 即可同步。现有账户可以退出或重新加入：
 
 ```bash
 ccs auth resources work --mode profile-local
 ccs auth resources work --mode shared
 ```
 
-Local history is separate: if users want future plain `ccs` and `ccs ck` sessions to resume from the same account lane, run `ccs auth default ck` after backing up the current native lane with `ccs auth backup default`.
+本地历史是分开的：如果用户希望未来的 plain `ccs` 和 `ccs ck` 会话从同一账户通道恢复，使用 `ccs auth backup default` 备份当前原生通道后运行 `ccs auth default ck`。
 
-`context_group` normalization and validation:
+`context_group` 规范化和验证：
 
-- trim + lowercase + collapse internal whitespace to `-`
-- allowed characters: lowercase letters, numbers, `_`, `-`
-- must start with a letter
-- max length: 64
-- shared mode requires non-empty value after normalization
-- `continuity_mode` is only valid when mode is `shared`
+- trim + 小写 + 内部空白折叠为 `-`
+- 允许的字符：小写字母、数字、`_`、`-`
+- 必须以字母开头
+- 最大长度：64
+- shared 模式需要规范化后非空值
+- `continuity_mode` 仅在模式为 `shared` 时有效
 
-`PUT /api/config` behavior for account context:
+`PUT /api/config` 对账户上下文的行为：
 
-- rejects invalid unified payloads
-- rejects explicit `context_mode: shared` with invalid/empty `context_group`
-- rejects invalid `continuity_mode` values
-- normalizes valid shared `context_group` before save
-- defaults missing shared `continuity_mode` to `standard`
-- rejects `context_group` when mode is not `shared`
-- rejects `continuity_mode` when mode is not `shared`
+- 拒绝无效的统一 payload
+- 拒绝带有无效/空 `context_group` 的显式 `context_mode: shared`
+- 拒绝无效的 `continuity_mode` 值
+- 保存前规范化有效的共享 `context_group`
+- 缺失的共享 `continuity_mode` 默认为 `standard`
+- 当模式不是 `shared` 时拒绝 `context_group`
+- 当模式不是 `shared` 时拒绝 `continuity_mode`
 
-Dashboard accounts context editing:
+Dashboard 账户上下文编辑：
 
-- `PUT /api/accounts/:name/context` updates context mode/group/continuity for existing auth accounts
-- rejects CLIProxy OAuth account keys for this route
-- applies normalization/validation rules above
+- `PUT /api/accounts/:name/context` 更新现有认证账户的上下文模式/组/连续性
+- 为此路由拒绝 CLIProxy OAuth 账户密钥
+- 应用上述规范化/验证规则
 
-Shared resource editing:
+共享资源编辑：
 
-- `PUT /api/accounts/:name/shared-resources` updates `shared_resource_mode` for existing auth accounts
-- accepts only `shared` or `profile-local`
-- rejects CLIProxy OAuth account keys for this route
-- reconciles the account instance after metadata is updated
-- Dashboard -> Accounts exposes this as a separate Resources action so it is not confused with History Sync.
-- Dashboard -> Shared Resources shows the shared hub inventory for commands, skills, agents, plugins, and `settings.json`.
-- The Plugins tab is registry-oriented: installed plugin entries come from `installed_plugins.json`, while internal cache/data/marketplace folders stay hidden unless a real plugin entry exists.
-- Shared `settings.json` is read-only in the Shared Resources page and still edited through the settings surfaces that own those values.
+- `PUT /api/accounts/:name/shared-resources` 更新现有认证账户的 `shared_resource_mode`
+- 仅接受 `shared` 或 `profile-local`
+- 为此路由拒绝 CLIProxy OAuth 账户密钥
+- 元数据更新后协调账户实例
+- Dashboard -> Accounts 将此作为单独的资源操作公开，因此不会与历史同步混淆
+- Dashboard -> Shared Resources 显示 commands、skills、agents、plugins 和 `settings.json` 的共享中心清单
+- Plugins 选项卡是注册表方向的：已安装的 plugin 条目来自 `installed_plugins.json`，而内部缓存/数据/市场文件夹保持隐藏，除非存在真实的 plugin 条目
+- 共享 `settings.json` 在 Shared Resources 页面中是只读的，仍通过拥有这些值的设置界面编辑
 
-## Commands
+## 命令
 
 ### `ccs config auth setup`
 
-Interactive wizard to configure dashboard login.
+配置 dashboard 登录的交互向导。
 
 ```bash
 $ ccs config auth setup
@@ -141,7 +142,7 @@ Confirm password: ********
 
 ### `ccs config auth show`
 
-Display current authentication status.
+显示当前认证状态。
 
 ```bash
 $ ccs config auth show
@@ -163,7 +164,7 @@ Commands
 
 ### `ccs config auth disable`
 
-Disable dashboard authentication with confirmation.
+禁用 dashboard 认证并确认。
 
 ```bash
 $ ccs config auth disable
@@ -184,21 +185,21 @@ Disable authentication? [y/N]: y
 
 ### `ccs config auth --help`
 
-Display usage information.
+显示使用信息。
 
-## Environment Variables
+## 环境变量
 
-Environment variables override `config.yaml` values:
+环境变量覆盖 `config.yaml` 值：
 
-| Variable | Description |
+| 变量 | 描述 |
 |----------|-------------|
-| `CCS_DASHBOARD_AUTH_ENABLED` | Enable/disable auth (`true`/`false`) |
-| `CCS_DASHBOARD_USERNAME` | Username |
-| `CCS_DASHBOARD_PASSWORD_HASH` | Bcrypt password hash |
+| `CCS_DASHBOARD_AUTH_ENABLED` | 启用/禁用认证（`true`/`false`） |
+| `CCS_DASHBOARD_USERNAME` | 用户名 |
+| `CCS_DASHBOARD_PASSWORD_HASH` | Bcrypt 密码哈希 |
 
-### Generating a Password Hash
+### 生成密码哈希
 
-Use bcrypt to generate a hash:
+使用 bcrypt 生成哈希：
 
 ```bash
 # Using Node.js
@@ -208,9 +209,9 @@ node -e "console.log(require('bcrypt').hashSync('your-password', 10))"
 npx bcrypt-cli hash "your-password"
 ```
 
-## Configuration
+## 配置
 
-Settings are stored in `~/.ccs/config.yaml`:
+设置存储在 `~/.ccs/config.yaml`：
 
 ```yaml
 # Dashboard Auth: Optional login protection for CCS dashboard
@@ -223,29 +224,29 @@ dashboard_auth:
   session_timeout_hours: 24
 ```
 
-## Security Notes
+## 安全注意事项
 
-1. **Bcrypt hashing**: Passwords are hashed with bcrypt (10 rounds) before storage
-2. **Session cookies**: Sessions use HTTP-only cookies (not accessible via JavaScript)
-3. **Rate limiting**: Login attempts are rate-limited (5 per 15 minutes)
-4. **Fail-closed remote writes**: When auth is disabled, sensitive management routes allow localhost only
-5. **File permissions**: Config file is created with 0o600 permissions
+1. **Bcrypt 哈希**：密码在存储前用 bcrypt（10 轮）哈希
+2. **Session cookies**：Sessions 使用 HTTP-only cookies（JavaScript 无法访问）
+3. **速率限制**：登录尝试被速率限制（每 15 分钟 5 次）
+4. **失败关闭的远程写入**：当认证禁用时，敏感管理路由仅允许 localhost
+5. **文件权限**：配置文件以 0o600 权限创建
 
-## Troubleshooting
+## 故障排除
 
 ### "Authentication not configured"
 
-Run `ccs config auth setup` to configure credentials.
+运行 `ccs config auth setup` 配置凭证。
 
-If you are using the integrated Docker stack, run that command inside `ccs-cliproxy`. Running it on the outer host shell updates a different config directory and will not unlock the running dashboard.
+如果您使用的是集成的 Docker 堆栈，在 ccs-cliproxy 内部运行该命令。在外层 host shell 上运行它会更新不同的配置目录，不会解锁运行的 dashboard。
 
-### Forgot password
+### 忘记密码
 
-Run `ccs config auth setup` again to set a new password.
+再次运行 `ccs config auth setup` 设置新密码。
 
-### ENV override not working
+### ENV 覆盖不生效
 
-Ensure the variable is exported:
+确保变量已导出：
 
 ```bash
 export CCS_DASHBOARD_AUTH_ENABLED=true
@@ -253,15 +254,15 @@ export CCS_DASHBOARD_USERNAME=admin
 export CCS_DASHBOARD_PASSWORD_HASH='$2b$10$...'
 ```
 
-### Session expired immediately
+### Session 立即过期
 
-Check `session_timeout_hours` in config. Default is 24 hours.
+检查配置中的 `session_timeout_hours`。默认是 24 小时。
 
 ### "Invalid ... context_group ..."
 
-This error comes from `PUT /api/config` when an account explicitly sets shared mode with an invalid group. Use a canonical group value (for example: `team-alpha`).
+此错误来自 `PUT /api/config`，当账户明确设置共享模式但组无效时。使用规范组值（例如：`team-alpha`）。
 
-## See Also
+## 另见
 
-- [Dashboard Auth Feature](https://ccs.kaitran.ca/features/dashboard-auth) - Full documentation
-- [Config Schema](https://ccs.kaitran.ca/reference/config-schema) - All config options
+- [Dashboard Auth Feature](https://ccs.kaitran.ca/features/dashboard-auth) - 完整文档
+- [Config Schema](https://ccs.kaitran.ca/reference/config-schema) - 所有配置选项

@@ -4,44 +4,42 @@
 
 ![CCS Logo](assets/ccs-logo-medium.png)
 
-### The multi-provider profile and runtime manager for Claude Code and compatible CLIs
+### Claude Code 及兼容 CLI 的多 Provider Profile 和运行时管理器
 
-Run Claude, Codex, Droid-routed profiles, GLM, local models, and
-Anthropic-compatible APIs without config thrash.
+运行 Claude、Codex、Droid 路由 Profile、GLM、本地模型和 Anthropic 兼容 API，无需频繁更换配置。
 
 [![License](https://img.shields.io/badge/license-MIT-C15F3C?style=for-the-badge)](LICENSE)
 [![npm](https://img.shields.io/npm/v/@kaitranntt/ccs?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@kaitranntt/ccs)
 [![PoweredBy](https://img.shields.io/badge/PoweredBy-ClaudeKit-C15F3C?style=for-the-badge)](https://claudekit.cc?ref=HMNKXOHN)
 
-**[Website](https://ccs.kaitran.ca)** |
-**[Documentation](https://docs.ccs.kaitran.ca)** |
-**[Product Tour](https://docs.ccs.kaitran.ca/getting-started/product-tour)** |
-**[CLI Reference](https://docs.ccs.kaitran.ca/reference/cli-commands)**
+**[网站](https://ccs.kaitran.ca)** |
+**[文档](https://docs.ccs.kaitran.ca)** |
+**[产品导览](https://docs.ccs.kaitran.ca/getting-started/product-tour)** |
+**[CLI 参考](https://docs.ccs.kaitran.ca/reference/cli-commands)**
 
 </div>
 
-## Why CCS
+## 为什么使用 CCS
 
-CCS gives you one stable command surface while letting you switch between:
+CCS 为你提供一个稳定的统一命令入口，同时可以在以下之间切换：
 
-- multiple runtimes such as Claude Code, Factory Droid, and Codex CLI
-- multiple Claude subscriptions and isolated account contexts
-- OAuth providers like Codex, Kiro, Claude, Qwen, Kimi, and more, with legacy
-  Copilot compatibility for existing setups
-- API and local-model profiles like GLM, Kimi, OpenRouter, Ollama, llama.cpp,
-  Novita, and Alibaba Coding Plan
+- 多种运行时，如 Claude Code、Factory Droid 和 Codex CLI
+- 多个 Claude 订阅和隔离的账户上下文
+- OAuth Provider，如 Codex、Kiro、Claude、Qwen、Kimi 等，以及现有设置的
+  传统 Copilot 兼容性
+- API 和本地模型 Profile，如 GLM、Kimi、OpenRouter、Ollama、llama.cpp、
+  Novita 和阿里巴巴 Coding Plan
 
-The goal is simple: stop rewriting config files, stop breaking active sessions,
-and move between providers in seconds.
+目标很简单：不再重写配置文件，不再打断活跃会话，在几秒内切换 Provider。
 
-## Quick Start
+## 快速开始
 
 ```bash
 npm install -g @kaitranntt/ccs
 ccs config
 ```
 
-Then launch whatever runtime fits the task:
+然后启动适合任务的运行时：
 
 ```bash
 ccs
@@ -51,144 +49,137 @@ ccs glm
 ccs ollama
 ```
 
-## OpenAI-Compatible Routing
+## OpenAI 兼容路由
 
-CCS can now bridge Claude Code into OpenAI-compatible providers through a local
-Anthropic-compatible proxy instead of requiring a native Anthropic upstream.
+CCS 现在可以通过本地 Anthropic 兼容代理将 Claude Code 桥接到 OpenAI 兼容 Provider，
+而无需原生 Anthropic 上游。
 
 ```bash
 ccs api create --preset hf
 ccs hf
 ```
 
-Need to manage the proxy manually?
+需要手动管理代理？
 
 ```bash
 ccs proxy start hf
 eval "$(ccs proxy activate)"
 ```
 
-The proxy also supports request-time `profile:model` selectors, scenario-based
-model routing through `proxy.routing`, and explicit activation helpers such as
-`ccs proxy activate --fish`.
+代理还支持请求时的 `profile:model` 选择器、通过 `proxy.routing` 的场景化模型路由，
+以及显式激活辅助工具，如 `ccs proxy activate --fish`。
 
-Guide: [OpenAI-Compatible Provider Routing](./docs/openai-compatible-providers.md)
+指南：[OpenAI 兼容 Provider 路由](./docs/openai-compatible-providers.md)
 
-### Related Project: claude-code-router
+### 相关项目：claude-code-router
 
-[claude-code-router](https://github.com/musistudio/claude-code-router) is an
-excellent standalone tool for routing Claude Code requests to OpenAI-compatible
-providers. CCS's local proxy and SSE transformation work was directly informed
-by CCR's transformer architecture.
+[claude-code-router](https://github.com/musistudio/claude-code-router) 是一个优秀的
+独立工具，用于将 Claude Code 请求路由到 OpenAI 兼容 Provider。CCS 本地代理和 SSE
+转换工作直接借鉴了 CCR 的转换器架构。
 
-Use CCR when you want a standalone router without CCS profile management.
-Use CCS when you want the routing flow integrated with CCS profiles, runtime
-bridges, and the existing `ccs` command surface.
+当你需要独立路由器而不需要 CCS Profile 管理时使用 CCR。
+当你需要将路由流程与 CCS Profile、运行时桥接和现有 `ccs` 命令集成时使用 CCS。
 
-Need the full setup path instead of the short version?
+需要完整的设置路径而非简化版本？
 
-| Need | Start here |
+| 需求 | 从这里开始 |
 | --- | --- |
-| Install and verify CCS | [`/getting-started/installation`](https://docs.ccs.kaitran.ca/getting-started/installation) |
-| First successful session | [`/getting-started/first-session`](https://docs.ccs.kaitran.ca/getting-started/first-session) |
-| Visual walkthrough | [`/getting-started/product-tour`](https://docs.ccs.kaitran.ca/getting-started/product-tour) |
-| Provider selection | [`/providers/concepts/overview`](https://docs.ccs.kaitran.ca/providers/concepts/overview) |
-| Full command reference | [`/reference/cli-commands`](https://docs.ccs.kaitran.ca/reference/cli-commands) |
-| Troubleshooting | [`/reference/troubleshooting`](https://docs.ccs.kaitran.ca/reference/troubleshooting) |
+| 安装并验证 CCS | [`/getting-started/installation`](https://docs.ccs.kaitran.ca/getting-started/installation) |
+| 首次成功会话 | [`/getting-started/first-session`](https://docs.ccs.kaitran.ca/getting-started/first-session) |
+| 可视化导览 | [`/getting-started/product-tour`](https://docs.ccs.kaitran.ca/getting-started/product-tour) |
+| Provider 选择 | [`/providers/concepts/overview`](https://docs.ccs.kaitran.ca/providers/concepts/overview) |
+| 完整命令参考 | [`/reference/cli-commands`](https://docs.ccs.kaitran.ca/reference/cli-commands) |
+| 故障排除 | [`/reference/troubleshooting`](https://docs.ccs.kaitran.ca/reference/troubleshooting) |
 
-## See CCS In Action
+## 观看 CCS 实际运行
 
-### Usage Analytics
+### 使用分析
 
-![Analytics Dashboard](assets/screenshots/analytics.webp)
+![分析仪表板](assets/screenshots/analytics.webp)
 
-Track usage, costs, and session patterns across profiles. Deep dive:
-[Dashboard Analytics](https://docs.ccs.kaitran.ca/features/dashboard/analytics).
+跨 Profile 追踪使用情况、成本和会话模式。深入了解：
+[仪表板分析](https://docs.ccs.kaitran.ca/features/dashboard/analytics)。
 
-### Live Auth And Health Monitoring
+### 实时认证和健康监控
 
-![Live Auth Monitor](assets/screenshots/live-auth-monitor.webp)
+![实时认证监控](assets/screenshots/live-auth-monitor.webp)
 
-See auth state, account health, and provider readiness without dropping into raw
-config. Deep dive:
-[Live Auth Monitor](https://docs.ccs.kaitran.ca/features/dashboard/live-auth-monitor).
+查看认证状态、账户健康状况和 Provider 就绪情况，无需深入原始配置。深入了解：
+[实时认证监控](https://docs.ccs.kaitran.ca/features/dashboard/live-auth-monitor)。
 
-### OAuth Provider Control Center
+### OAuth Provider 控制中心
 
 ![CLIProxy API](assets/screenshots/cliproxyapi.webp)
 
-Manage OAuth-backed providers, quota visibility, and proxy-wide routing from one place. CCS now
-surfaces round-robin vs fill-first natively in both CLI and dashboard flows instead of hiding that
-choice inside raw upstream controls. The original CLIProxyAPI backend remains the default; the
-community-maintained CLIProxyAPIPlus fork is opt-in for plus-only providers. When Plus is selected,
-CCS points the embedded management panel at the maintained CPAMC dashboard fork by default.
-Deep dive:
-[CLIProxy API](https://docs.ccs.kaitran.ca/features/proxy/cliproxy-api).
+从一个地方管理 OAuth 支持的 Provider、配额可视化和全代理路由。CCS 现在在 CLI 和
+仪表板流程中原生支持轮询与填满优先模式，而不是将其隐藏在上游控件内部。原始
+CLIProxyAPI 后端仍然是默认选项；社区维护的 CLIProxyAPIPlus 分支是 Plus 专有
+Provider 的可选选项。选择 Plus 后，CCS 默认将嵌入式管理面板指向维护的
+CPAMC 仪表板分支。深入了解：
+[CLIProxy API](https://docs.ccs.kaitran.ca/features/proxy/cliproxy-api)。
 
-### Managed Tooling And Fallbacks
+### 托管工具和回退方案
 
-![WebSearch Fallback](assets/screenshots/websearch.webp)
+![WebSearch 回退](assets/screenshots/websearch.webp)
 
-CCS can provision first-class local tools like WebSearch and image analysis for
-third-party launches instead of leaving you to wire them by hand. Browser
-automation now has a first-class setup path as well. Deep dive:
+CCS 可以为第三方启动配置一等本地工具，如 WebSearch 和图像分析，而不是让你
+自己手动连接。浏览器自动化现在也有一等设置路径。深入了解：
 [WebSearch](https://docs.ccs.kaitran.ca/features/ai/websearch) |
-[Browser Automation](./docs/browser-automation.md).
+[浏览器自动化](./docs/browser-automation.md)。
 
-## Docs Matrix
+## 文档矩阵
 
-The README stays short on purpose. The docs site owns the detailed guides and
-reference material.
+README 的目的是保持简洁。详细指南和参考材料由文档站点负责。
 
-| If you want to... | Read this |
+| 如果你想... | 阅读这个 |
 | --- | --- |
-| Understand what CCS is and how the pieces fit together | [Introduction](https://docs.ccs.kaitran.ca/introduction) |
-| Install CCS cleanly on a new machine | [Installation](https://docs.ccs.kaitran.ca/getting-started/installation) |
-| Go from install to a successful first run | [Your First CCS Session](https://docs.ccs.kaitran.ca/getting-started/first-session) |
-| See the dashboard and workflow surfaces before setup | [Product Tour](https://docs.ccs.kaitran.ca/getting-started/product-tour) |
-| Compare OAuth providers, Claude accounts, and API profiles | [Provider Overview](https://docs.ccs.kaitran.ca/providers/concepts/overview) |
-| Learn the dashboard structure and feature pages | [Dashboard Overview](https://docs.ccs.kaitran.ca/features/dashboard/overview) |
-| Configure profiles, paths, and environment variables | [Configuration](https://docs.ccs.kaitran.ca/getting-started/configuration) |
-| Understand browser attach vs Codex browser tooling | [Browser Automation](./docs/browser-automation.md) |
-| Keep OpenCode aligned with your live CCS setup | [OpenCode Sync Plugin](https://docs.ccs.kaitran.ca/features/workflow/opencode-sync) |
-| Browse every command and flag | [CLI Commands](https://docs.ccs.kaitran.ca/reference/cli-commands) |
-| Recover from install, auth, or provider failures | [Troubleshooting](https://docs.ccs.kaitran.ca/reference/troubleshooting) |
-| Understand storage, config, and architecture details | [Reference](https://docs.ccs.kaitran.ca/reference/architecture) |
+| 了解 CCS 是什么以及各部分如何配合 | [介绍](https://docs.ccs.kaitran.ca/introduction) |
+| 在新机器上干净地安装 CCS | [安装](https://docs.ccs.kaitran.ca/getting-started/installation) |
+| 从安装到成功首次运行 | [你的第一个 CCS 会话](https://docs.ccs.kaitran.ca/getting-started/first-session) |
+| 在设置前查看仪表板和工作流界面 | [产品导览](https://docs.ccs.kaitran.ca/getting-started/product-tour) |
+| 比较 OAuth Provider、Claude 账户和 API Profile | [Provider 概览](https://docs.ccs.kaitran.ca/providers/concepts/overview) |
+| 了解仪表板结构和功能页面 | [仪表板概览](https://docs.ccs.kaitran.ca/features/dashboard/overview) |
+| 配置 Profile、路径和环境变量 | [配置](https://docs.ccs.kaitran.ca/getting-started/configuration) |
+| 了解浏览器附加与 Codex 浏览器工具的区别 | [浏览器自动化](./docs/browser-automation.md) |
+| 保持 OpenCode 与你的实时 CCS 设置同步 | [OpenCode 同步插件](https://docs.ccs.kaitran.ca/features/workflow/opencode-sync) |
+| 浏览每个命令和标志 | [CLI 命令](https://docs.ccs.kaitran.ca/reference/cli-commands) |
+| 从安装、认证或 Provider 故障中恢复 | [故障排除](https://docs.ccs.kaitran.ca/reference/troubleshooting) |
+| 了解存储、配置和架构细节 | [参考](https://docs.ccs.kaitran.ca/reference/architecture) |
 
-## Example Workflow
+## 工作流示例
 
 ```bash
-# Design with default Claude
+# 使用默认 Claude 进行设计
 ccs "design the auth flow"
 
-# Implement with a different provider
+# 使用不同 Provider 实现
 ccs codex "implement the user service"
 
-# Use a cheaper API profile for routine work
+# 使用更便宜的 API Profile 处理日常任务
 ccs glm "clean up tests and docs"
 
-# Run a local model when you need privacy or offline access
+# 需要隐私或离线访问时运行本地模型
 ccs ollama "summarize these logs"
 ```
 
-## Community Projects
+## 社区项目
 
-| Project | Author | Description |
+| 项目 | 作者 | 描述 |
 | --- | --- | --- |
-| [opencode-ccs-sync](https://github.com/JasonLandbridge/opencode-ccs-sync) | [@JasonLandbridge](https://github.com/JasonLandbridge) | Auto-sync CCS providers into OpenCode |
+| [opencode-ccs-sync](https://github.com/JasonLandbridge/opencode-ccs-sync) | [@JasonLandbridge](https://github.com/JasonLandbridge) | 自动将 CCS Provider 同步到 OpenCode |
 
-## Contribute And Report Safely
+## 安全贡献和报告
 
-- Contributing guide: [CONTRIBUTING.md](./CONTRIBUTING.md)
-- Daily local gate: `bun run format && bun run lint:fix && bun run validate` (`validate` is the fast path only)
-- Before review or merge confidence: `bun run validate:ci-parity`
-- If PR checks stay queued for more than 10 minutes, assume the self-hosted runner is offline and notify a maintainer instead of retrying blindly
-- Starter work:
-  [good first issue](https://github.com/kaitranntt/ccs/labels/good%20first%20issue),
+- 贡献指南：[CONTRIBUTING.md](./CONTRIBUTING.md)
+- 每日本地检查：`bun run format && bun run lint:fix && bun run validate`（`validate` 仅是快速路径）
+- 审查或合并前的信心检查：`bun run validate:ci-parity`
+- 如果 PR 检查排队超过 10 分钟，假设自托管运行器已离线，通知维护者而不是盲目重试
+- 入门工作：
+  [good first issue](https://github.com/kaitranntt/ccs/labels/good%20first%20issue)，
   [help wanted](https://github.com/kaitranntt/ccs/labels/help%20wanted)
-- Questions: [open a question issue](https://github.com/kaitranntt/ccs/issues/new/choose)
-- Security reports: [SECURITY.md](./SECURITY.md) and the
-  [private advisory form](https://github.com/kaitranntt/ccs/security/advisories/new)
+- 问题：[新建问题](https://github.com/kaitranntt/ccs/issues/new/choose)
+- 安全报告：[SECURITY.md](./SECURITY.md) 和
+  [私人咨询表单](https://github.com/kaitranntt/ccs/security/advisories/new)
 
 ## Star History
 

@@ -1,36 +1,36 @@
-# Agent Guidelines
+# Agent 指南
 
-AI-facing guidance for agent tooling when working with this repository.
+面向 Agent 工具的 AI 指导，用于处理此仓库。
 
-## Critical Constraints (NEVER VIOLATE)
+## 关键约束（永不违反）
 
-### Test Isolation (MANDATORY)
+### 测试隔离（强制）
 
-**NEVER touch the user's real `~/.ccs/` or `~/.claude/` directories during tests.**
+**测试期间绝不触碰用户真实的 `~/.ccs/` 或 `~/.claude/` 目录。**
 
-- All code accessing CCS paths MUST use `getCcsDir()` from `src/utils/config-manager.ts`
-- This function respects `CCS_HOME` env var for test isolation
-- **WRONG:** `path.join(os.homedir(), '.ccs', ...)`
-- **CORRECT:** `path.join(getCcsDir(), ...)`
+- 所有访问 CCS 路径的代码必须使用 `src/utils/config-manager.ts` 中的 `getCcsDir()`
+- 此函数尊重 `CCS_HOME` 环境变量用于测试隔离
+- **错误：** `path.join(os.homedir(), '.ccs', ...)`
+- **正确：** `path.join(getCcsDir(), ...)`
 
-Tests set `process.env.CCS_HOME` to a temp directory. Code using `os.homedir()` directly will modify the user's real files.
+测试将 `process.env.CCS_HOME` 设置为临时目录。直接使用 `os.homedir()` 的代码会修改用户的真实文件。
 
-## CI-First Protocol (MANDATORY)
+## CI 优先协议（强制）
 
-**A task is NOT complete until CI is green. After every `git push`, the AI agent MUST block on CI until it passes.**
+**任务在 CI 变绿之前不算完成。每次 `git push` 后，AI agent 必须阻塞等待 CI 通过。**
 
-### Required Sequence
+### 必需顺序
 1. `git push`
-2. **Immediately** run `gh pr checks --watch` (or `gh run watch`) and block until all checks complete.
-3. If **green** → task may proceed to next step / be declared done.
-4. If **red**:
-   - Pull failing logs: `gh run view --log-failed` (or `gh pr checks <n>` to identify the failing job, then `gh run view <run-id> --log-failed`).
-   - Fix the root cause locally. Do NOT retry blindly.
-   - Commit and push again. Re-watch CI.
-5. Applies to initial `gh pr create` AND every subsequent push on an open PR.
+2. **立即**运行 `gh pr checks --watch`（或 `gh run watch`）并阻塞直到所有检查完成。
+3. 如果**变绿** → 任务可以继续下一步或宣告完成。
+4. 如果**变红**：
+   - 拉取失败日志：`gh run view --log-failed`（或 `gh pr checks <n>` 识别失败任务，然后 `gh run view <run-id> --log-failed`）。
+   - 本地修复根本原因。不要盲目重试。
+   - 提交并重新推送。重新监视 CI。
+5. 适用于首次 `gh pr create` 以及开放 PR 上的每次后续推送。
 
-### Fallback (when `--watch` is unavailable or flaky)
-Poll with short sleep until no check is `pending` / `in_progress`:
+### 回退（当 `--watch` 不可用或不稳定时）
+轮询短暂等待，直到没有检查处于 `pending` / `in_progress`：
 ```bash
 until [ "$(gh pr checks <n> --json state -q '[.[] | select(.state == "IN_PROGRESS" or .state == "PENDING" or .state == "QUEUED")] | length')" = "0" ]; do
   sleep 10
@@ -38,106 +38,103 @@ done
 gh pr checks <n>
 ```
 
-### Absolute rule
-AI MUST NOT declare a task done, close a session, or move to the next task while CI is red or still running. Leaving a PR red and moving on is the primary failure mode this protocol prevents.
+### 绝对规则
+当 CI 变红或仍在运行时，AI 不得宣告任务完成、关闭会话或转向下一个任务。让 PR 保持变红状态然后离开是此协议要防止的主要失败模式。
 
-### Dev Release vs Push CI
+### Dev Release 与 Push CI
 
-- `CI` is the pull-request quality gate for contributor branches.
-- `Push CI` is the post-merge quality signal for `dev`.
-- `Dev Release` publishes the `@dev` package after `dev` changes land.
-- A red `Dev Release` does **not** automatically mean contributor code failed. Check `Push CI` first.
-- Verified on `2026-04-22` via `gh api repos/kaitranntt/ccs/branches/dev/protection`: `dev` currently requires `typecheck`, `lint`, `format`, `build`, and `test`, has no branch restrictions, and has no required PR-review gate.
-- `dev-release.yml` currently pushes with `PAT_TOKEN` because `dev` is protected by those required status checks. Do not switch it back to `github.token` unless branch protection changes with it.
+- `CI` 是贡献者分支的 PR 质量门。
+- `Push CI` 是 `dev` 合并后的质量信号。
+- `Dev Release` 在 `dev` 变更落地后发布 `@dev` 包。
+- 变红的 `Dev Release` 不一定意味着贡献者代码失败。先检查 `Push CI`。
+- 于 `2026-04-22` 通过 `gh api repos/kaitranntt/ccs/branches/dev/protection` 验证：`dev` 当前要求 `typecheck`、`lint`、`format`、`build` 和 `test`，无分支限制，无必需的 PR 审查门。
+- `dev-release.yml` 当前使用 `PAT_TOKEN` 推送，因为 `dev` 受那些必需状态检查保护。除非分支保护随之改变，否则不要切换回 `github.token`。
 
-### Self-Hosted Runner Policy
+### 自托管运行器策略
 
-- Keep active CCS workflows on local self-hosted runners by default. Do **not** move jobs to `ubuntu-latest`, `macos-latest`, or other GitHub-hosted runners as the first security fix.
-- For this public repo, standard GitHub-hosted runners may not consume billable minutes, but the project policy is still local-runner-first to keep compute predictable and avoid future quota surprises across repos.
-- Make self-hosted use secure by gating untrusted PR triggers, avoiding checkout of untrusted code in privileged `pull_request_target` jobs, setting `persist-credentials: false`, and scoping PAT-backed credentials to the exact release/sync push step.
-- If a workflow truly needs GitHub-hosted runners, document the exception in this file and add a regression test for the exception.
+- 默认将活跃 CCS 工作流保留在本地自托管运行器上。不要将任务迁移到 `ubuntu-latest`、`macos-latest` 或其他 GitHub 托管运行器作为第一安全修复。
+- 对于这个公共仓库，标准 GitHub 托管运行器可能不消耗计费分钟，但项目策略仍然是本地运行器优先，以保持计算可预测并避免仓库间配额意外。
+- 通过以下方式使自托管使用安全：限制不受信任的 PR 触发、在特权 `pull_request_target` 作业中避免检出不受信任的代码、设置 `persist-credentials: false`，以及将 PAT 支持的凭证限制在精确的发布/同步推送步骤。
+- 如果工作流确实需要 GitHub 托管运行器，在此文件中记录例外并添加回归测试。
 
-## Core Function
+## 核心功能
 
-Multi-provider profile and runtime manager for Claude Code, Factory Droid,
-Codex CLI, and other compatible targets. See README.md for user documentation.
+Claude Code、Factory Droid、Codex CLI 及其他兼容目标的多 Provider Profile 和运行时管理器。
+用户文档见 README.md。
 
-## README Preservation
+## README 保护
 
-When editing `README.md`, keep the file concise and funnel detailed usage into
-the docs site, but **do not remove the `## Community Projects` section** or the
-`## Star History` section unless the user explicitly asks for those sections to
-be deleted. Treat both as protected README content.
+编辑 `README.md` 时，保持文件简洁，将详细用法引导至文档站点，但**不要删除 `## Community Projects` 部分**
+或 `## Star History` 部分，除非用户明确要求删除。将两者视为受保护的 README 内容。
 
-When a contributor adds a useful community integration section to `README.md`,
-prefer preserving the attribution in `## Community Projects` and moving the
-setup substance into a docs page, rather than deleting the contribution.
+当贡献者向 `README.md` 添加有用的社区集成部分时，
+优先在 `## Community Projects` 中保留 attribution，并将设置内容移至文档页面，而不是删除贡献。
 
-Outside provider-specific Gemini and Antigravity docs, avoid using `ccs gemini`
-or `ccs agy` as the primary hero example, default starter route, or generic
-workflow example. Prefer `ccs`, `ccs codex`, `ccs kiro`, `ccs glm`, Droid
-examples, or neutral `ccs <provider>` placeholders when the page is about a
-broader topic.
+除特定 Provider 的 Gemini 和 Antigravity 文档外，避免使用 `ccs gemini`
+或 `ccs agy` 作为主要示例、默认入门路线或通用工作流示例。
+当页面涉及更广泛主题时，优先使用 `ccs`、`ccs codex`、`ccs kiro`、`ccs glm`、Droid
+示例或中立的 `ccs <provider>` 占位符。
 
-## Design Principles (ENFORCE STRICTLY)
+## 设计原则（严格强制执行）
 
-### Technical Excellence
-- **YAGNI**: No features "just in case"
-- **KISS**: Simple bash/PowerShell/Node.js only
-- **DRY**: One source of truth (config.yaml)
+### 技术卓越
+- **YAGNI**：不添加"以防万一"的功能
+- **KISS**：仅使用简单的 bash/PowerShell/Node.js
+- **DRY**：单一事实来源（config.yaml）
 
-### User Experience (EQUALLY IMPORTANT)
-- **CLI-Complete**: All features MUST have CLI interface
-- **Dashboard-Parity**: Configuration features MUST also have Dashboard interface
-- **Execution is CLI**: Running profiles happens via terminal, not dashboard buttons
-- **UX > Brevity**: Error messages and help text prioritize user success over terseness
-- **Progressive Disclosure**: Simple by default, power features accessible but not overwhelming
+### 用户体验（同等重要）
+- **CLI 完整**：所有功能必须有 CLI 接口
+- **仪表板对等**：配置功能也必须有仪表板界面
+- **执行靠 CLI**：运行 Profile 通过终端而非仪表板按钮
+- **UX > 简洁**：错误消息和帮助文本优先考虑用户成功而非简洁
+- **渐进式披露**：默认简单，强大功能可访问但不令人不知所措
 
-### When Principles Conflict
-- **UX > YAGNI** for user-facing features (if users need it, it's not "just in case")
-- **KISS applies to BOTH** code AND user experience (simple journey, not just simple code)
-- **DRY applies to BOTH** code AND interface patterns (consistent behavior across CLI/Dashboard)
+### 原则冲突时
+- 用户面向功能的 **UX > YAGNI**（如果用户需要，就不是"以防万一"）
+- **KISS 适用于两者**代码和用户体验（简单旅程，而不仅仅是简单代码）
+- **DRY 适用于两者**代码和接口模式（CLI/仪表板行为一致）
 
-## Common Mistakes (AVOID)
+## 常见错误（避免）
 
-| Mistake | Consequence | Correct Action |
+| 错误 | 后果 | 正确操作 |
 |---------|-------------|----------------|
-| Running `validate` without `format` first | format:check fails | Run `bun run format` BEFORE validate |
-| Treating `Dev Release` as the contributor quality signal | Publish failures on `dev` look like broken code | Check PR `CI` on the branch and `Push CI` on `dev` first |
-| Using `chore:` for dev→main PR | No npm release triggered | Use `feat:` or `fix:` prefix |
-| Committing directly to `main` or `dev` | Bypasses CI/review | Always use PRs |
-| Manual version bump or git tag | Conflicts with semantic-release | Let CI handle versioning |
-| Forgetting `--help` update | CLI docs out of sync | Update `src/commands/help-command.ts` |
-| Forgetting docs update | User docs out of sync | Update `docs/` and CCS docs submodule |
+| 先运行 `validate` 而不先运行 `format` | format:check 失败 | 在 validate 之前运行 `bun run format` |
+| 将 `Dev Release` 视为贡献者质量信号 | `dev` 上的发布失败看起来像代码损坏 | 先检查分支上的 PR `CI` 和 `dev` 上的 `Push CI` |
+| 对 dev→main PR 使用 `chore:` | 不会触发 npm 发布 | 使用 `feat:` 或 `fix:` 前缀 |
+| 直接提交到 `main` 或 `dev` | 绕过 CI/审查 | 始终使用 PR |
+| 手动版本提升或 git 标签 | 与 semantic-release 冲突 | 让 CI 处理版本控制 |
+| 忘记更新 `--help` | CLI 文档不同步 | 更新 `src/commands/help-command.ts` |
+| 忘记更新文档 | 用户文档不同步 | 更新 `docs/` 和 CCS 文档子模块 |
 
-## GitHub Issue Operations (CCS-Specific)
+## GitHub Issue 操作（CCS 特定）
 
-These rules apply when the task is issue triage, backlog cleanup, labels, comments, Projects, or milestones for this repo.
+当任务是 issue 分类、排期清理、标签、评论、项目或此仓库的里程碑时适用。
 
-### Scope Boundary
+### 范围边界
 
-- Treat issue triage as a **GitHub-only workflow** unless the user explicitly asks for implementation.
-- Do **NOT** create a worktree, branch, PR, or run `/fix`, `/cook`, or `kai:maintainer` just to tag issues, post follow-up comments, close duplicates, or clean up backlog state.
-- Escalate into code workflow only when:
-  - the user explicitly asks to fix/implement an issue, or
-  - triage proves the same task now requires code changes.
+- 将 issue 分类视为 **GitHub 仅限工作流**，除非用户明确要求实现。
+- **不要**创建 worktree、分支、PR 或运行 `/fix`、`/cook` 或 `kai:maintainer` 来标记 issue、
+  发布后续评论、关闭重复或清理排期状态。
+- 仅在以下情况升级到代码工作流：
+  - 用户明确要求修复/实现 issue，或
+  - 分类证明同样的任务现在需要代码更改。
 
-### Read Before Mutating
+### 变更前先阅读
 
-- Always inspect live issue state first with `gh issue view <n> --json ...` or `gh api`.
-- Never rely on stale memory, screenshots, or issue titles alone.
-- Before closing as resolved, cross-check repo evidence in at least one of:
+- 始终先用 `gh issue view <n> --json ...` 或 `gh api` 检查实时 issue 状态。
+- 永远不要依赖过时的记忆、截图或 issue 标题。
+- 在关闭为已解决之前，至少在以下之一中交叉检查仓库证据：
   - `README.md`
   - `docs/`
   - `CHANGELOG.md`
-  - relevant source/help handlers
-- If the `gh` query would touch Projects fields, verify token scope first. Missing `read:project` is a real blocker, not something to hand-wave around.
+  - 相关源/帮助处理程序
+- 如果 `gh` 查询会触及项目字段，先验证令牌范围。缺少 `read:project` 是真正的阻碍，而不是可以忽视的东西。
 
-### Labeling Standard
+### 标签标准
 
-- Every **open** issue should end triage with:
-  - one primary type label: `bug`, `enhancement`, `question`, `documentation`, `duplicate`, `invalid`, or `wontfix`
-  - one area label:
+- 每个**开放** issue 分类结束时应包含：
+  - 一个主要类型标签：`bug`、`enhancement`、`question`、`documentation`、`duplicate`、`invalid` 或 `wontfix`
+  - 一个区域标签：
     - `area:cli-runtime`
     - `area:dashboard-ui`
     - `area:config-auth`
@@ -145,161 +142,162 @@ These rules apply when the task is issue triage, backlog cleanup, labels, commen
     - `area:install-packaging`
     - `area:documentation`
     - `area:contributor-workflow`
-- Add routing labels only when they materially change handling:
+- 仅在路由标签实质性改变处理时才添加：
   - `upstream-blocked`
   - `needs-repro`
   - `needs-split`
   - `docs-gap`
-- Use release-state labels for shipped work:
+- 对已发布的工作使用发布状态标签：
   - `pending-release`
   - `released-dev`
   - `released`
-- Do **NOT** create or use status labels like `todo`, `doing`, `blocked`, `done`.
-- Do **NOT** create provider-name labels unless there is a proven long-term need. Provider names belong in titles/issues, not label spam.
+- **不要**创建或使用状态标签如 `todo`、`doing`、`blocked`、`done`。
+- **不要**创建 Provider 名称标签，除非有证实的长期需求。Provider 名称属于标题/issue，不属于标签垃圾邮件。
 
-### Commenting Rules
+### 评论规则
 
-- Keep issue comments short, technical, and neutral.
-- State the decision plainly: close, keep open, retag, needs repro, duplicate, blocked upstream.
-- Include exact evidence when relevant: version, doc path, changelog release, canonical issue, upstream link.
-- Do **NOT** reference internal plans, local report files, agent prompts, or private reasoning.
-- Post **one** maintainer follow-up comment per triage pass. If accidental duplicates are created, delete them with `gh api repos/<owner>/<repo>/issues/comments/<id> -X DELETE`.
+- 保持 issue 评论简短、技术性和中立。
+- plainly 陈述决定：关闭、保持开放、重新标记、需要复现、重复、上游阻塞。
+- 相关时包含精确证据：版本、文档路径、变更日志发布、规范 issue、上游链接。
+- **不要**引用内部计划、本地报告文件、agent 提示或私人推理。
+- 每次分类传递只发布一条维护者后续评论。如果意外创建了重复项，用
+  `gh api repos/<owner>/<repo>/issues/comments/<id> -X DELETE` 删除。
 
-### Closure Rules
+### 关闭规则
 
-- Close immediately when:
-  - the issue is an obvious duplicate and you can point to the canonical issue
-  - the feature/fix is clearly shipped and documented
-  - a previously `pending-release` issue is now clearly past release and no longer needs tracking
-- Keep open and retag when:
-  - upstream dependency still blocks CCS adoption -> `upstream-blocked`
-  - latest-release behavior is unclear -> `needs-repro`
-  - issue contains multiple independent asks -> `needs-split`
-  - feature likely exists but discoverability/docs are weak -> `docs-gap`
-- Do **NOT** close just because an issue is old, vague, or inconvenient. Close only with evidence.
+- 立即关闭当：
+  - issue 明显重复且可以指向规范 issue
+  - 功能/修复已明确发布并记录
+  - 先前 `pending-release` 的 issue 现在明显已过发布且不再需要追踪
+- 保持开放并重新标记当：
+  - 上游依赖仍阻止 CCS 采用 -> `upstream-blocked`
+  - 最新发布行为不清楚 -> `needs-repro`
+  - issue 包含多个独立请求 -> `needs-split`
+  - 功能可能存在但可发现性/文档薄弱 -> `docs-gap`
+- **不要**仅仅因为 issue 旧、模糊或不方便就关闭。仅凭证据关闭。
 
-### Projects And Milestones
+### 项目和里程碑
 
-- Preferred project model for this repo: one project, `CCS Backlog`.
-- Use Projects for workflow state and priority. Use labels for meaning and routing.
-- Milestones are for real ship windows only, not generic categorization buckets.
-- If `gh` token lacks `read:project`, say so explicitly and stop short of pretending Projects data is available.
-- Active project:
+- 此仓库的首选项目模型：一个项目，`CCS Backlog`。
+- 使用项目管理工作流状态和优先级。使用标签表示含义和路由。
+- 里程碑仅用于真正的发布窗口，而不是通用分类桶。
+- 如果 `gh` 令牌缺少 `read:project`，明确说明并停止假装项目数据可用。
+- 活跃项目：
   - owner: `kaitranntt`
   - number: `3`
   - URL: `https://github.com/users/kaitranntt/projects/3`
-- Active project fields:
-  - `Status` -> use for work state (`Todo`, `In Progress`, `Done`)
-  - `Priority` -> `P1` for bugs, `P2` default backlog, `P3` for broad `needs-split` buckets unless explicitly reprioritized
-  - `Follow-up` -> `Ready`, `Needs repro`, `Blocked upstream`, `Needs split`, `Docs follow-up`
-  - `Next review` -> date only for issues that need a follow-up checkpoint
-- When triaging an open issue, make sure it exists in `CCS Backlog` and the project fields match the routing labels.
-- Do **NOT** create a second backlog project unless the user explicitly wants a project split and gives a reason.
-- Current automation path:
-  - workflow file: `.github/workflows/sync-ccs-backlog-project.yml`
-  - sync script: `scripts/github/ccs-backlog-sync.mjs`
-  - required Actions secret: `CCS_PROJECT_AUTOMATION_TOKEN`
-- Automation mapping must stay aligned with labels:
+- 活跃项目字段：
+  - `Status` -> 用于工作状态（`Todo`、`In Progress`、`Done`）
+  - `Priority` -> Bug 用 `P1`，默认排期用 `P2`，宽泛的 `needs-split` 桶用 `P3`，除非明确重新优先级
+  - `Follow-up` -> `Ready`、`Needs repro`、`Blocked upstream`、`Needs split`、`Docs follow-up`
+  - `Next review` -> 仅对需要后续检查点的 issue 使用日期
+- 分类开放 issue 时，确保它存在于 `CCS Backlog` 中且项目字段与路由标签匹配。
+- **不要**创建第二个排期项目，除非用户明确要求项目拆分并给出原因。
+- 当前自动化路径：
+  - 工作流文件：`.github/workflows/sync-ccs-backlog-project.yml`
+  - 同步脚本：`scripts/github/ccs-backlog-sync.mjs`
+  - 必需的 Actions 密钥：`CCS_PROJECT_AUTOMATION_TOKEN`
+- 自动化映射必须与标签保持对齐：
   - `upstream-blocked` -> `Follow-up=Blocked upstream`
   - `needs-repro` -> `Follow-up=Needs repro`
   - `needs-split` -> `Follow-up=Needs split`
   - `docs-gap` -> `Follow-up=Docs follow-up`
-  - otherwise -> `Follow-up=Ready`
+  - 否则 -> `Follow-up=Ready`
 
-### New Or Updated Issue Creation
+### 新建或更新 Issue 创建
 
-- When creating issues for this repo:
-  - assign `@kaitranntt`
-  - use conventional issue titles: `bug: ...`, `feat: ...`, `docs: ...`
-  - keep bodies factual and technical
-  - avoid personal info and internal-only context
+- 为此仓库创建 issue 时：
+  - 分配 `@kaitranntt`
+  - 使用 conventional issue 标题：`bug: ...`、`feat: ...`、`docs: ...`
+  - 保持 body 事实性和技术性
+  - 避免个人信息，仅限内部上下文
 
-## Quality Gates (MANDATORY)
+## 质量门（强制）
 
-Quality gates MUST pass before pushing. **Both projects have identical workflow.**
+推送前必须通过质量门。**两个项目工作流相同。**
 
-### Pre-Commit Sequence (FOLLOW THIS ORDER)
+### 预提交顺序（按此顺序执行）
 
 ```bash
-# Main project (from repo root)
-bun run format              # Step 1: Fix formatting
-bun run lint:fix            # Step 2: Fix lint issues
-bun run validate            # Step 3: Fast gate (typecheck + lint + format + test:fast)
-bun run validate:ci-parity  # Step 4: PR-CI parity gate (branch check + build + full tests + e2e)
+# 主项目（从仓库根目录）
+bun run format              # 步骤 1：修复格式
+bun run lint:fix            # 步骤 2：修复 lint 问题
+bun run validate            # 步骤 3：快速门（typecheck + lint + format + test:fast）
+bun run validate:ci-parity  # 步骤 4：PR-CI 对等门（分支检查 + build + 完整测试 + e2e）
 
-# UI project (if UI changed)
+# UI 项目（如果 UI 更改）
 cd ui
-bun run format              # Step 1: Fix formatting
-bun run lint:fix            # Step 2: Fix lint issues
-bun run validate            # Step 3: Final check (must pass)
+bun run format              # 步骤 1：修复格式
+bun run lint:fix            # 步骤 2：修复 lint 问题
+bun run validate            # 步骤 3：最终检查（必须通过）
 ```
 
-**WHY THIS ORDER:**
-- `validate` runs `format:check` which only VERIFIES—won't fix
-- If format:check fails, you skipped step 1
-- `validate` now uses read-only `lint`, so autofix still belongs in step 2
-- PR CI and `validate:ci-parity` both run non-mutating checks only
+**为什么是这个顺序：**
+- `validate` 运行 `format:check`，仅验证——不会修复
+- 如果 format:check 失败，说明你跳过了步骤 1
+- `validate` 现在使用只读 `lint`，所以自动修复仍然属于步骤 2
+- PR CI 和 `validate:ci-parity` 都只运行非变更检查
 
-### What Each Gate Runs
+### 每个门运行什么
 
-| Project | Command | Runs |
+| 项目 | 命令 | 运行内容 |
 |---------|---------|------|
 | Main | `bun run validate` | typecheck + lint + format:check + test:fast |
 | Main | `bun run validate:ci-parity` | base branch check + typecheck + lint + format:check + build:all + test:all + test:e2e |
 | UI | `bun run validate` | typecheck + lint:fix + format:check |
 
-### ESLint Rules (ALL errors)
+### ESLint 规则（全部错误）
 
-| Rule | Level | Notes |
+| 规则 | 级别 | 备注 |
 |------|-------|-------|
-| `@typescript-eslint/no-unused-vars` | error | Ignore `_` prefix |
-| `@typescript-eslint/no-explicit-any` | error | Use proper types or `unknown` |
-| `@typescript-eslint/no-non-null-assertion` | error | No `!` assertions |
-| `prefer-const`, `no-var`, `eqeqeq` | error | Code quality |
-| `react-hooks/*` (UI only) | recommended | Hooks rules |
-| `react-refresh/*` (UI only) | vite | Fast refresh |
+| `@typescript-eslint/no-unused-vars` | error | 忽略 `_` 前缀 |
+| `@typescript-eslint/no-explicit-any` | error | 使用适当类型或 `unknown` |
+| `@typescript-eslint/no-non-null-assertion` | error | 不使用 `!` 断言 |
+| `prefer-const`, `no-var`, `eqeqeq` | error | 代码质量 |
+| `react-hooks/*`（仅 UI） | recommended | Hooks 规则 |
+| `react-refresh/*`（仅 UI） | vite | 快速刷新 |
 
-### TypeScript Options (strict mode)
+### TypeScript 选项（严格模式）
 
-| Option | Value | Notes |
+| 选项 | 值 | 备注 |
 |--------|-------|-------|
-| `strict` | true | All strict flags enabled |
-| `noUnusedLocals` | true | No unused variables |
-| `noUnusedParameters` | true | No unused params |
-| `noImplicitReturns` | true | All paths must return |
-| `noFallthroughCasesInSwitch` | true | Explicit case handling |
+| `strict` | true | 启用所有严格标志 |
+| `noUnusedLocals` | true | 无未使用变量 |
+| `noUnusedParameters` | true | 无未使用参数 |
+| `noImplicitReturns` | true | 所有路径必须返回 |
+| `noFallthroughCasesInSwitch` | true | 显式 case 处理 |
 
-### Automatic Enforcement
+### 自动执行
 
-- `prepack` runs `build:all`
-- PR `CI` runs `typecheck`, `lint`, `format`, `build`, `test:all`, and `test:e2e`
-- `Push CI` runs the same quality suite on `dev` after merge, separate from release publishing
-- `Dev Release` still runs build + fast validation + slow tests + e2e before publishing and still requires `PAT_TOKEN` to push back to protected `dev`
-- husky `pre-commit` runs quick lint/type/format checks
-- husky `pre-push` runs the full `bun run validate:ci-parity` gate on `main`/`dev`/hotfix branches
-- husky `pre-push` runs a faster feature-branch gate (`typecheck` + `lint` + `format:check` + `test:fast`) plus targeted checks based on changed files
+- `prepack` 运行 `build:all`
+- PR `CI` 运行 `typecheck`、`lint`、`format`、`build`、`test:all` 和 `test:e2e`
+- `Push CI` 在合并后在 `dev` 上运行相同的质量套件，单独于发布推送
+- `Dev Release` 在发布前仍运行 build + 快速验证 + 慢速测试 + e2e，仍需要 `PAT_TOKEN` 推送回受保护的 `dev`
+- husky `pre-commit` 运行快速 lint/类型/格式检查
+- husky `pre-push` 在 `main`/`dev`/hotfix 分支上运行完整的 `bun run validate:ci-parity` 门
+- husky `pre-push` 在功能分支上运行更快的门（`typecheck` + `lint` + `format:check` + `test:fast`）以及基于更改文件的针对性检查
 
-### Maintainability Gate Status
+### 可维护性门状态
 
-- The historical maintainability baseline gate is retired from the active CCS workflow.
-- `validate`, `validate:ci-parity`, PR `CI`, `Push CI`, and release workflows do **not** invoke `maintainability:check`.
-- Older roadmap references to `maintainability:baseline` / `maintainability:check` are historical context, not current repo commands.
+- 历史可维护性基线门已从活跃 CCS 工作流中退役。
+- `validate`、`validate:ci-parity`、PR `CI`、`Push CI` 和发布工作流**不**调用 `maintainability:check`。
+- 较旧的路线路中对 `maintainability:baseline` / `maintainability:check` 的引用是历史上下文，不是当前仓库命令。
 
-## Critical Constraints (NEVER VIOLATE)
+## 关键约束（永不违反）
 
-1. **NO EMOJIS in CLI output** - Terminal output uses ASCII only: [OK], [!], [X], [i]
-   - **Scope:** CCS CLI terminal output (`src/` code that prints to stdout/stderr)
-   - **Does NOT apply to:** PR descriptions, commit messages, documentation, comments, AI conversations
-2. **TTY-aware colors** - Respect NO_COLOR env var
-3. **Non-invasive** - NEVER modify external tool settings (`~/.claude/settings.json`) without explicit user request and confirmation (exception: `ccs persist` command)
-4. **Cross-platform parity** - bash/PowerShell/Node.js must behave identically
-5. **CLI documentation** - ALL CLI changes MUST update respective `--help` handler (see table below)
-6. **Idempotent** - All install operations safe to run multiple times
-7. **Dashboard parity** - Configuration features MUST work in both CLI and Dashboard
+1. **CLI 输出中禁止 EMOJIS** - 终端输出仅使用 ASCII：`[OK]`、`[!]`、`[X]`、`[i]`
+   - **范围：** CCS CLI 终端输出（打印到 stdout/stderr 的 `src/` 代码）
+   - **不适用于：** PR 描述、commit 消息、文档、评论、AI 对话
+2. **TTY 感知颜色** - 尊重 NO_COLOR 环境变量
+3. **非侵入性** - 未经用户明确请求和确认，绝不修改外部工具设置（`~/.claude/settings.json`）（`ccs persist` 命令除外）
+4. **跨平台一致性** - bash/PowerShell/Node.js 必须行为相同
+5. **CLI 文档** - 所有 CLI 更改必须更新相应的 `--help` 处理程序（见下表）
+6. **幂等** - 所有安装操作可安全多次运行
+7. **仪表板对等** - 配置功能必须在 CLI 和仪表板中均可工作
 
-### Help Location Reference
+### 帮助位置参考
 
-| Command | Help Handler Location |
+| 命令 | 帮助处理程序位置 |
 |---------|----------------------|
 | `ccs --help` | `src/commands/help-command.ts` |
 | `ccs api --help` | `src/commands/api-command.ts` → `showHelp()` |
@@ -315,83 +313,84 @@ bun run validate            # Step 3: Final check (must pass)
 | `ccs persist --help` | `src/commands/persist-command.ts` → `showHelp()` |
 | `ccs setup --help` | `src/commands/setup-command.ts` → `showHelp()` |
 
-**Note:** `lib/ccs` and `lib/ccs.ps1` are bootstrap wrappers only—they delegate to Node.js and contain no help text.
+**注意：** `lib/ccs` 和 `lib/ccs.ps1` 只是引导包装器——它们通过 npx 委托给 Node.js，不包含帮助文本。
 
-## Documentation Requirements (MANDATORY)
+## 文档要求（强制）
 
-**Documentation is a first-class citizen. ALL user-facing changes require docs updates.**
+**文档是一等公民。所有面向用户的更改都需要更新文档。**
 
-### Local Documentation (`docs/`)
+### 本地文档（`docs/`）
 
-Update local `docs/` folder for:
-- Architecture changes
-- Internal API documentation
-- Development guides
+为以下内容更新本地 `docs/` 文件夹：
+- 架构更改
+- 内部 API 文档
+- 开发指南
 
-### CCS Docs Submodule (Owner Only)
+### CCS 文档子模块（仅限所有者）
 
-**For @kaitranntt (repository owner):** When adding/changing CLI commands or config options, you MUST also update the CCS docs submodule at `~/CloudPersonal/ccs/docs/`:
+**对于 @kaitranntt（仓库所有者）：** 添加/更改 CLI 命令或配置选项时，
+你还必须更新 `~/CloudPersonal/ccs/docs/` 中的 CCS 文档子模块：
 
-| Change Type | Files to Update |
+| 更改类型 | 要更新的文件 |
 |-------------|-----------------|
-| New CLI command/flag | `reference/cli-commands.mdx` |
-| New config option | `reference/config-schema.mdx` |
-| Provider feature | `providers/<provider>.mdx` |
-| New feature | `features/<feature>.mdx` |
+| 新 CLI 命令/标志 | `reference/cli-commands.mdx` |
+| 新配置选项 | `reference/config-schema.mdx` |
+| Provider 功能 | `providers/<provider>.mdx` |
+| 新功能 | `features/<feature>.mdx` |
 
-**Workflow for docs submodule:**
+**文档子模块工作流：**
 ```bash
 cd ~/CloudPersonal/ccs/docs/
 git checkout main && git pull
-# Make changes
+# 进行更改
 git add -A && git commit -m "docs: <description>"
 git push origin main
 ```
 
-**For external contributors:** Document changes in PR description. Owner will sync to CCS docs.
+**对于外部贡献者：** 在 PR 描述中记录更改。所有者将同步到 CCS 文档。
 
-### Pre-Commit Docs Checklist
+### 预提交文档清单
 
-- [ ] Respective `--help` updated (see Help Location Reference table)
-- [ ] Local `docs/` updated if architecture changed
-- [ ] CCS docs submodule updated (owner) or PR description includes docs (contributor)
+- [ ] 相应的 `--help` 已更新（见帮助位置参考表）
+- [ ] 如果架构更改则更新本地 `docs/`
+- [ ] 所有者更新 CCS 文档子模块，或贡献者在 PR 描述中包含文档
 
-## Feature Interface Requirements
+## 功能接口要求
 
-| Feature Type | CLI | Dashboard | Example |
+| 功能类型 | CLI | 仪表板 | 示例 |
 |--------------|-----|-----------|---------|
-| Profile creation | ✓ | ✓ | `ccs auth create`, Dashboard "Add Account" |
-| Profile switching | ✓ | ✓ | `ccs <profile>` (execution is CLI-only) |
-| API key config | ✓ | ✓ | `ccs api create`, Dashboard API Profiles |
-| Health check | ✓ | ✓ | `ccs doctor`, Dashboard Live Monitor |
-| OAuth auth flow | ✓ | ✓ | Browser opens from CLI or Dashboard |
-| Analytics/monitoring | ✗ | ✓ | Dashboard Analytics (visual by nature) |
-| WebSearch config | ✓ | ✓ | CLI flags, Dashboard Settings |
-| Remote proxy config | ✓ | ✓ | CLI flags, Dashboard Settings |
+| Profile 创建 | ✓ | ✓ | `ccs auth create`，仪表板"添加账户" |
+| Profile 切换 | ✓ | ✓ | `ccs <profile>`（执行仅限 CLI） |
+| API 密钥配置 | ✓ | ✓ | `ccs api create`，仪表板 API Profile |
+| 健康检查 | ✓ | ✓ | `ccs doctor`，仪表板实时监控 |
+| OAuth 认证流程 | ✓ | ✓ | 浏览器从 CLI 或仪表板打开 |
+| 分析/监控 | ✗ | ✓ | 仪表板分析（本质是可视化的） |
+| WebSearch 配置 | ✓ | ✓ | CLI 标志，仪表板设置 |
+| 远程代理配置 | ✓ | ✓ | CLI 标志，仪表板设置 |
 
-## File Structure
+## 文件结构
 
 ```
-src/           → TypeScript source (main project)
-dist/          → Compiled JavaScript (npm package)
-lib/           → Native shell scripts (bash, PowerShell)
-ui/src/        → React components, hooks, pages
-ui/src/components/ui/ → shadcn/ui components
-dist/ui/       → Built UI bundle (served by Express)
+src/           → TypeScript 源（主项目）
+dist/          → 编译的 JavaScript（npm 包）
+lib/           → 原生 shell 脚本（bash、PowerShell）
+ui/src/        → React 组件、hooks、页面
+ui/src/components/ui/ → shadcn/ui 组件
+dist/ui/       → 构建的 UI 包（由 Express 提供服务）
 ```
 
-## Key Technical Details
+## 关键技术细节
 
-### Profile Mechanisms (Priority Order)
+### Profile 机制（优先级顺序）
 
-1. **CLIProxy hardcoded**: gemini, codex, agy → OAuth-based, zero config
-2. **CLIProxy variants**: `config.cliproxy` section → user-defined providers
-3. **Settings-based**: `config.profiles` section → GLM, legacy GLMT compatibility, Kimi
-4. **Account-based**: `profiles.json` → isolated instances via `CLAUDE_CONFIG_DIR`
+1. **CLIProxy 硬编码**：gemini、codex、agy → 基于 OAuth，零配置
+2. **CLIProxy 变体**：`config.cliproxy` 部分 → 用户定义的 Provider
+3. **基于设置**：`config.profiles` 部分 → GLM、传统 GLMT 兼容性、Kimi
+4. **基于账户**：`profiles.json` → 通过 `CLAUDE_CONFIG_DIR` 隔离实例
 
-### Settings Format (CRITICAL)
+### 设置格式（关键）
 
-All env values MUST be strings (not booleans/objects) to prevent PowerShell crashes.
+所有 env 值必须是字符串（不是布尔值或对象）以防止 PowerShell 崩溃。
 
 ```json
 {
@@ -403,161 +402,161 @@ All env values MUST be strings (not booleans/objects) to prevent PowerShell cras
 }
 ```
 
-### Shared Data Architecture
+### 共享数据架构
 
-Symlinked from `~/.ccs/shared/`: commands/, skills/, agents/
-Profile-specific: settings.json, sessions/, todolists/, logs/
-Windows fallback: Copies if symlinks unavailable
+从 `~/.ccs/shared/` 符号链接：commands/、skills/、agents/
+Profile 特定：settings.json、sessions/、todolists/、logs/
+Windows 回退：符号链接不可用时复制
 
-## Code Standards
+## 代码标准
 
-### Architecture
-- `lib/ccs`, `lib/ccs.ps1` - Bootstrap scripts (delegate to Node.js via npx)
-- `src/*.ts` → `dist/*.js` - Main implementation (TypeScript)
+### 架构
+- `lib/ccs`、`lib/ccs.ps1` - 引导脚本（通过 npx 委托给 Node.js）
+- `src/*.ts` → `dist/*.js` - 主实现（TypeScript）
 
-### Bash (lib/*.sh)
-- bash 3.2+, `set -euo pipefail`, quote all vars `"$VAR"`, `[[ ]]` tests
-- NO external dependencies
+### Bash（lib/*.sh）
+- bash 3.2+、`set -euo pipefail`、引用所有变量 `"$VAR"`、`[[ ]]` 测试
+- 无外部依赖
 
-### PowerShell (lib/*.ps1)
-- PowerShell 5.1+, `$ErrorActionPreference = "Stop"`
-- Native JSON only, no external dependencies
+### PowerShell（lib/*.ps1）
+- PowerShell 5.1+、`$ErrorActionPreference = "Stop"`
+- 仅原生 JSON，无外部依赖
 
-### TypeScript (src/*.ts)
-- Node.js 18+, Bun 1.0+, TypeScript 5.3, strict mode
-- `child_process.spawn`, handle SIGINT/SIGTERM
+### TypeScript（src/*.ts）
+- Node.js 18+、Bun 1.0+、TypeScript 5.3、严格模式
+- `child_process.spawn`，处理 SIGINT/SIGTERM
 
-### Terminal Output
-- ASCII only: [OK], [!], [X], [i] (NO emojis in CLI output)
-- TTY detect before colors, respect NO_COLOR
-- Box borders for errors: ╔═╗║╚╝
+### 终端输出
+- 仅 ASCII：`[OK]`、`[!]`、`[X]`、`[i]`（CLI 输出中禁止 emojis）
+- 颜色前检测 TTY，尊重 NO_COLOR
+- 错误框边框：╔═╗║╚╝
 
-## Conventional Commits (MANDATORY)
+## 传统提交（强制）
 
-**ALL commits MUST follow conventional commit format. Non-compliant commits are rejected by husky.**
+**所有提交必须遵循传统提交格式。不符合的提交会被 husky 拒绝。**
 
-### Format
+### 格式
 ```
 <type>(<scope>): <description>
 ```
 
-### Types (determines version bump)
+### 类型（决定版本提升）
 
-| Type | Version Bump | Use For |
-|------|--------------|---------|
-| `feat:` | MINOR | New features |
-| `fix:` | PATCH | Bug fixes |
-| `perf:` | PATCH | Performance |
-| `feat!:` | MAJOR | Breaking changes |
-| `docs:`, `style:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:` | None | Non-release |
+| 类型 | 版本提升 | 用于 |
+|------|--------------|-------|
+| `feat:` | MINOR | 新功能 |
+| `fix:` | PATCH | Bug 修复 |
+| `perf:` | PATCH | 性能 |
+| `feat!:` | MAJOR | 破坏性更改 |
+| `docs:`、`style:`、`refactor:`、`test:`、`chore:`、`ci:`、`build:` | None | 非发布 |
 
-### Examples
+### 示例
 ```bash
-# Good
+# 正确
 git commit -m "feat(cliproxy): add OAuth token refresh"
 git commit -m "fix(doctor): handle missing config gracefully"
 
-# Bad - REJECTED
+# 错误 - 拒绝
 git commit -m "added new feature"
 git commit -m "Fixed bug"
 ```
 
-## Branching Strategy
+## 分支策略
 
-### Hierarchy
+### 层级
 ```
 main (production) ← dev (integration) ← feat/* | fix/* | docs/*
      ↑
-     └── hotfix/* (critical only, skips dev)
+     └── hotfix/*（仅关键，绕过 dev）
 ```
 
-### Standard Workflow
+### 标准工作流
 ```bash
 git checkout dev && git pull origin dev
 git checkout -b feat/my-feature
-# ... develop with conventional commits ...
+# ... 使用传统提交开发 ...
 git push -u origin feat/my-feature
 gh pr create --base dev --title "feat(scope): description"
-# After testing in @dev:
+# 在 @dev 测试后：
 gh pr create --base main --title "feat(release): promote dev to main"
 ```
 
-### Hotfix Workflow (Production Emergencies Only)
+### 热修复工作流（仅生产紧急情况）
 ```bash
 git checkout main && git pull origin main
 git checkout -b hotfix/critical-bug
-# ... fix ...
+# ... 修复 ...
 gh pr create --base main --title "fix: critical issue"
-# Then sync: git checkout dev && git merge main && git push
+# 然后同步：git checkout dev && git merge main && git push
 ```
 
-### Rules
-1. **NEVER** commit directly to `main` or `dev`
-2. Feature branches from `dev`, hotfixes from `main`
-3. dev→main PRs MUST use `feat:` or `fix:` (not `chore:`)
-4. Delete branches after merge
+### 规则
+1. **绝不**直接提交到 `main` 或 `dev`
+2. 功能分支从 `dev`，热修复从 `main`
+3. dev→main PR 必须使用 `feat:` 或 `fix:`（不是 `chore:`）
+4. 合并后删除分支
 
-## Automated Releases (DO NOT MANUALLY TAG)
+## 自动发布（不要手动标签）
 
-**Releases are FULLY AUTOMATED via semantic-release. NEVER manually bump versions or create tags.**
+**发布通过 semantic-release 完全自动化。绝不手动提升版本或创建标签。**
 
-| Branch | npm Tag | When |
+| 分支 | npm 标签 | 时间 |
 |--------|---------|------|
-| `main` | `@latest` | Merge PR to main |
-| `dev` | `@dev` | Push to dev branch |
+| `main` | `@latest` | PR 合并到 main 时 |
+| `dev` | `@dev` | 推送到 dev 分支时 |
 
-**CI handles:** version bump, CHANGELOG.md, git tag, npm publish, GitHub release.
+**CI 处理：** 版本提升、CHANGELOG.md、git 标签、npm 发布、GitHub 发布。
 
-## Development
+## 开发
 
-### Testing (REQUIRED before PR)
+### 测试（PR 前必需）
 ```bash
-bun run test              # All tests
-bun run test:npm          # npm package tests
-bun run test:native       # Native install tests
-bun run test:unit         # Unit tests
+bun run test              # 所有测试
+bun run test:npm          # npm 包测试
+bun run test:native       # 本地安装测试
+bun run test:unit         # 单元测试
 ```
 
-### Local Development
+### 本地开发
 ```bash
-bun run dev               # Build + start config server (http://localhost:3000)
-bun run dev:symlink       # Symlink global 'ccs' → dev dist/ccs.js (fast iteration)
-bun run dev:unlink        # Restore original global ccs
-./scripts/dev-install.sh  # Build, pack, install globally (full install)
-rm -rf ~/.ccs             # Clean environment
+bun run dev               # Build + 启动配置服务器（http://localhost:3000）
+bun run dev:symlink       # 符号链接全局 'ccs' → dev dist/ccs.js（快速迭代）
+bun run dev:unlink        # 恢复原始全局 ccs
+./scripts/dev-install.sh  # Build、pack、全局安装（完整安装）
+rm -rf ~/.ccs             # 清理环境
 ```
 
-**IMPORTANT:** Use `bun run dev` at CCS root for always up-to-date code. Do NOT use `ccs config` during development as it uses the globally installed version.
+**重要：** 在 CCS 根目录使用 `bun run dev` 以获得始终最新的代码。开发期间不要使用 `ccs config`，因为它使用全局安装的版本。
 
-## Two-Tier Pre-Push Checklist
+## 两层预推送清单
 
-Optimized for iterative push-then-review workflow. Do NOT run the full gate on every push — CI is the safety net. Run the full gate once before asking for review / merge.
+为优化的迭代推送然后审查工作流而设计。不要在每次推送时运行完整门——CI 是安全网。在请求审查/合并前运行一次完整门。
 
-### Tier 1 — Iterative push (feature branch)
-Husky `pre-push` auto-runs: `typecheck + lint + format:check + test:fast` plus targeted checks based on changed files. AI does **nothing extra** at push time.
+### 第一层 — 迭代推送（功能分支）
+Husky `pre-push` 自动运行：`typecheck + lint + format:check + test:fast` 以及基于更改文件的针对性检查。AI 在推送时**不做额外操作**。
 
-**After push (MANDATORY):** follow the [CI-First Protocol](#ci-first-protocol-mandatory) — watch CI until green. Do not move on while CI is red.
+**推送后（强制）：** 遵循 [CI 优先协议](#ci-first-protocol-mandatory)——监视 CI 直到变绿。CI 变红时不要继续。
 
-### Tier 2 — Before requesting review / merge
-Run ONCE, not per push:
-- [ ] `bun run validate:ci-parity` — branch freshness + build + full non-e2e tests + e2e
-- [ ] `gh pr checks <n>` — all checks green
-- [ ] If UI changed: `cd ui && bun run format && bun run validate`
-- [ ] If touching command routing, proxy flows, workflows, or release logic: `bun run test:e2e`
+### 第二层 — 请求审查/合并前
+运行一次，不是每次推送：
+- [ ] `bun run validate:ci-parity` — 分支新鲜度 + build + 完整非 e2e 测试 + e2e
+- [ ] `gh pr checks <n>` — 所有检查变绿
+- [ ] 如果 UI 更改：`cd ui && bun run format && bun run validate`
+- [ ] 如果触及命令路由、代理流程、工作流或发布逻辑：`bun run test:e2e`
 
-### Code / Docs / Standards (verify before merge)
-- [ ] Conventional commit format (`feat:`, `fix:`, etc.)
-- [ ] Respective `--help` updated (see Help Location Reference) — if CLI changed
-- [ ] Tests added/updated — if behavior changed
-- [ ] README.md updated — if user-facing
-- [ ] CCS docs updated (owner: `~/CloudPersonal/ccs/docs/`) — if CLI/config changed
-- [ ] Local `docs/` updated — if architecture changed
-- [ ] CLI output ASCII only (NO emojis in terminal output), NO_COLOR respected
-- [ ] YAGNI/KISS/DRY alignment verified
-- [ ] No manual version bump or tags
+### 代码/文档/标准（合并前验证）
+- [ ] 传统提交格式（`feat:`、`fix:` 等）
+- [ ] 相应的 `--help` 已更新（见帮助位置参考）——如果 CLI 更改
+- [ ] 添加/更新了测试——如果行为更改
+- [ ] README.md 已更新——如果面向用户
+- [ ] CCS 文档已更新（所有者：`~/CloudPersonal/ccs/docs/`）——如果 CLI/配置更改
+- [ ] 本地 `docs/` 已更新——如果架构更改
+- [ ] CLI 输出仅 ASCII（终端输出中禁止 emojis），尊重 NO_COLOR
+- [ ] YAGNI/KISS/DRY 对齐已验证
+- [ ] 无手动版本提升或标签
 
-## Error Handling Principles
+## 错误处理原则
 
-- Validate early, fail fast with clear messages
-- Show available options on mistakes
-- Never leave broken state
+- 早验证，快速失败，消息清晰
+- 犯错时显示可用选项
+- 绝不留下损坏状态

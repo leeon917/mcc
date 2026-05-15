@@ -1,20 +1,20 @@
-# WebSearch Configuration Guide
+# WebSearch 配置指南
 
-Last Updated: 2026-04-11
+最后更新：2026-04-11
 
-CCS provides automatic web search for third-party profiles that cannot access Anthropic's native WebSearch API.
+CCS 为无法访问 Anthropic 原生 WebSearch API 的第三方 profiles 提供自动网络搜索。
 
-## How WebSearch Works
+## WebSearch 工作原理
 
-### Native Claude Accounts
+### 原生 Claude 账户
 
-Native Claude subscription accounts still use Anthropic's server-side WebSearch directly.
+原生 Claude 订阅账户仍直接使用 Anthropic 的服务端 WebSearch。
 
-### Third-Party Profiles
+### 第三方 Profiles
 
-Third-party profiles cannot execute Anthropic's server-side WebSearch because the tool never reaches their backend. CCS now handles that by provisioning a first-class local MCP tool when the managed runtime is available, suppressing native `WebSearch` for those launches, appending a short launch-time steering hint, and running real local search providers directly.
+第三方 profiles 无法执行 Anthropic 的服务端 WebSearch，因为该工具永远不会到达它们的后端。CCS 现在通过在托管运行时可用时配置一级本地 MCP 工具、抑制原生 `WebSearch` 用于这些启动、附加简短启动时引导提示以及直接运行真实本地搜索 providers 来处理。
 
-## Architecture
+## 架构
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -43,53 +43,53 @@ Third-party profiles cannot execute Anthropic's server-side WebSearch because th
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## Why This Changed
+## 为什么这改变了
 
-The previous design asked another model CLI to perform web search and summarize the answer. A later compatibility path also depended on a denied native-tool hook. Both were brittle:
+之前的设计要求另一个模型 CLI 执行网络搜索并总结答案。后来的兼容性路径也依赖于被拒绝的原生工具 hook。两者都很脆弱：
 
-- CLI syntax changed upstream
-- auth state varied per tool
-- prompt/tool behavior drifted across releases
-- hook-shaped denial output produced awkward host UX
+- CLI 语法在上游更改
+- 认证状态因工具而异
+- 提示/工具行为在版本间漂移
+- hook 形状的拒绝输出产生了尴尬的 host UX
 
-The new flow matches the `goclaw` model more closely: web search is treated as a first-class deterministic capability, not an LLM-to-LLM workaround or a denied native tool call.
+新流程更接近 `goclaw` 模型：网络搜索被视为一级确定性能力，而不是 LLM 到 LLM 的变通方法或被拒绝的原生工具调用。
 
-When provisioned, the managed MCP tool is exposed as `ccs-websearch.WebSearch`, not a generic `search` helper. That naming is deliberate: it gives Claude a tool that matches the native `WebSearch` concept more directly, which should reduce cases where the model reaches for ad hoc Bash or `curl` fetches instead.
+配置后，托管 MCP 工具公开为 `ccs-websearch.WebSearch`，而不是通用的 `search` 辅助工具。该命名是故意的：它为 Claude 提供了一个更直接匹配原生 `WebSearch` 概念的工具，这应该减少模型求助于临时 Bash 或 `curl` 获取的情况。
 
-CCS also appends a third-party-only `--append-system-prompt` hint telling Claude to prefer that managed `WebSearch` tool for web lookups and current-information requests. This is soft steering only: if the user explicitly asks for shell commands, or the tool is unavailable, Claude can still fall back to Bash/network tools.
-That shared launch helper applies to normal third-party settings profiles, CLIProxy/Copilot-backed Claude launches, and CCS headless/delegation runs that execute through a settings profile.
+CCS 还附加了一个仅第三方的 `--append-system-prompt` 提示，告诉 Claude 对于网络查找和当前信息请求优选该托管 `WebSearch` 工具。这只是软引导：如果用户明确要求 shell 命令，或者工具不可用，Claude 仍可以回退到 Bash/网络工具。
+该共享启动辅助适用于普通第三方 settings profiles、CLIProxy/Copilot 支持的 Claude 启动以及通过 settings profile 执行的 CCS 无头/delegation 运行。
 
-`websearch.enabled: false` disables the managed local runtime, but CCS still suppresses Anthropic's native `WebSearch` on third-party profiles. That native tool cannot be satisfied by Exa, Tavily, Brave, DuckDuckGo, or other non-Anthropic backends, so CCS avoids sending a broken native-tool request and lets Claude fall back to normal shell/network tools instead.
+`websearch.enabled: false` 禁用托管本地运行时，但 CCS 仍会在第三方 profiles 上抑制 Anthropic 的原生 `WebSearch`。该原生工具无法被 Exa、Tavily、Brave、DuckDuckGo 或其他非 Anthropic 后端满足，因此 CCS 避免发送损坏的原生工具请求，而是让 Claude 回退到正常 shell/网络工具。
 
 ## Providers
 
-| Provider | Type | Setup | Default | Notes |
+| Provider | 类型 | 设置 | 默认 | 备注 |
 |----------|------|-------|---------|-------|
-| Exa | HTTP API | `EXA_API_KEY` | No | High-quality API search with extracted content |
-| Tavily | HTTP API | `TAVILY_API_KEY` | No | Agent-oriented search API |
-| Brave Search | HTTP API | `BRAVE_API_KEY` | No | Cleaner snippets and metadata |
-| SearXNG | JSON API | `providers.searxng.url` | No | Self-hosted/public SearXNG backend via `/search?format=json` |
-| DuckDuckGo | HTML fetch | None | Yes | Built-in zero-setup fallback |
-| Gemini CLI | Legacy CLI | `npm i -g @google/gemini-cli` | No | Optional compatibility fallback |
-| OpenCode | Legacy CLI | `curl -fsSL https://opencode.ai/install \| bash` | No | Optional compatibility fallback |
-| Grok CLI | Legacy CLI | `npm i -g @vibe-kit/grok-cli` + `GROK_API_KEY` | No | Optional compatibility fallback |
+| Exa | HTTP API | `EXA_API_KEY` | 否 | 高质量 API 搜索与提取内容 |
+| Tavily | HTTP API | `TAVILY_API_KEY` | 否 | 面向 agent 的搜索 API |
+| Brave Search | HTTP API | `BRAVE_API_KEY` | 否 | 更干净的片段和元数据 |
+| SearXNG | JSON API | `providers.searxng.url` | 否 | 通过 `/search?format=json` 的自托管/公共 SearXNG 后端 |
+| DuckDuckGo | HTML 获取 | 无 | 是 | 内置零设置回退 |
+| Gemini CLI | 旧版 CLI | `npm i -g @google/gemini-cli` | 否 | 可选兼容性回退 |
+| OpenCode | 旧版 CLI | `curl -fsSL https://opencode.ai/install \| bash` | 否 | 可选兼容性回退 |
+| Grok CLI | 旧版 CLI | `npm i -g @vibe-kit/grok-cli` + `GROK_API_KEY` | 否 | 可选兼容性回退 |
 
-## Configuration
+## 配置
 
-### Via Dashboard
+### 通过 Dashboard
 
-Open `ccs config` → `Settings` → `WebSearch`.
+打开 `ccs config` → `Settings` → `WebSearch`。
 
-- Enable Exa, Tavily, Brave, SearXNG, or DuckDuckGo in the backend chain
-- Configure the SearXNG base URL (for example `https://search.example.com`) when SearXNG is enabled
-  Do not include `/search`, embedded credentials, query parameters, or URL fragments. CCS appends `/search?format=json`.
-- Set or rotate Exa, Tavily, and Brave API keys directly inside each provider card
-- Saved keys are persisted in `global_env` and injected at runtime, so readiness updates from the same screen
-- Review whether any legacy fallback CLIs are still enabled in config
+- 在后端链中启用 Exa、Tavily、Brave、SearXNG 或 DuckDuckGo
+- 启用 SearXNG 时配置 SearXNG 基础 URL（例如 `https://search.example.com`）
+  不要包含 `/search`、嵌入式凭证、查询参数或 URL 片段。CCS 追加 `/search?format=json`。
+- 直接在每个 provider 卡片内设置或轮换 Exa、Tavily 和 Brave API keys
+- 保存的 keys 持久化在 `global_env` 中并在运行时注入，因此同一屏幕的就绪状态更新
+- 检查配置中是否仍有任何旧版回退 CLI 启用
 
-### Via Config File
+### 通过配置文件
 
-Edit `~/.ccs/config.yaml`:
+编辑 `~/.ccs/config.yaml`：
 
 ```yaml
 websearch:
@@ -124,38 +124,38 @@ websearch:
       timeout: 55
 ```
 
-Note: `enabled: false` stops provisioning the managed local `ccs-websearch.WebSearch` runtime. It does not re-enable Anthropic's native `WebSearch` for third-party backends.
+注意：`enabled: false` 停止配置托管本地 `ccs-websearch.WebSearch` 运行时。它不会为第三方后端重新启用 Anthropic 的原生 `WebSearch`。
 
-## Environment Variables
+## 环境变量
 
-| Variable | Description |
+| 变量 | 描述 |
 |----------|-------------|
-| `EXA_API_KEY` | Enables Exa when `providers.exa.enabled: true` |
-| `TAVILY_API_KEY` | Enables Tavily when `providers.tavily.enabled: true` |
-| `BRAVE_API_KEY` | Enables Brave Search when `providers.brave.enabled: true` |
-| `CCS_WEBSEARCH_SEARXNG_URL` | Runtime URL used when `providers.searxng.enabled: true` |
-| `CCS_WEBSEARCH_SEARXNG_MAX_RESULTS` | Optional runtime override for SearXNG result count (clamped 1..10) |
-| `GROK_API_KEY` | Required only for legacy Grok CLI fallback |
-| `CCS_WEBSEARCH_SKIP` | Disable the CCS local WebSearch runtime for the current process; third-party launches still keep native Anthropic `WebSearch` disabled |
-| `CCS_DEBUG` | Verbose WebSearch runtime logging |
-| `CCS_WEBSEARCH_TRACE` | Write opt-in JSONL trace records under `~/.ccs/logs/websearch-trace.jsonl` |
-| `CCS_WEBSEARCH_TRACE_FILE` | Override the trace file path (must stay inside `~/.ccs/`, your system temp directory, or `/var/log`) |
+| `EXA_API_KEY` | 当 `providers.exa.enabled: true` 时启用 Exa |
+| `TAVILY_API_KEY` | 当 `providers.tavily.enabled: true` 时启用 Tavily |
+| `BRAVE_API_KEY` | 当 `providers.brave.enabled: true` 时启用 Brave Search |
+| `CCS_WEBSEARCH_SEARXNG_URL` | 当 `providers.searxng.enabled: true` 时使用的运行时 URL |
+| `CCS_WEBSEARCH_SEARXNG_MAX_RESULTS` | SearXNG 结果数的可选运行时覆盖（限制 1..10） |
+| `GROK_API_KEY` | 仅旧版 Grok CLI 回退需要 |
+| `CCS_WEBSEARCH_SKIP` | 禁用当前进程的 CCS 本地 WebSearch 运行时；第三方启动仍保持原生 Anthropic `WebSearch` 禁用 |
+| `CCS_DEBUG` | 详细 WebSearch 运行时日志 |
+| `CCS_WEBSEARCH_TRACE` | 将可选 JSONL 跟踪记录写入 `~/.ccs/logs/websearch-trace.jsonl` |
+| `CCS_WEBSEARCH_TRACE_FILE` | 覆盖跟踪文件路径（必须保持在 `~/.ccs/`、系统 temp 目录或 `/var/log` 内） |
 
-## Managed Runtime Files
+## 托管运行时文件
 
-- `~/.claude.json` → CCS manages `mcpServers.ccs-websearch`
-- `~/.ccs/mcp/ccs-websearch-server.cjs` → local MCP server binary
-- `~/.ccs/hooks/websearch-transformer.cjs` → shared provider runtime plus legacy compatibility fallback
+- `~/.claude.json` → CCS 管理 `mcpServers.ccs-websearch`
+- `~/.ccs/mcp/ccs-websearch-server.cjs` → 本地 MCP 服务器二进制
+- `~/.ccs/hooks/websearch-transformer.cjs` → 共享 provider 运行时加旧版兼容性回退
 
-## Troubleshooting
+## 故障排除
 
-### WebSearch says "Ready (DuckDuckGo)"
+### WebSearch 显示 "Ready (DuckDuckGo)"
 
-That is expected. DuckDuckGo is the default zero-setup backend.
+这是预期的。DuckDuckGo 是默认的零设置后端。
 
-### Exa, Tavily, or Brave is enabled but not ready
+### Exa、Tavily 或 Brave 已启用但未就绪
 
-Set the matching API key in the WebSearch dashboard card, or export it in the environment that launches CCS, then refresh status:
+在 WebSearch dashboard 卡片中设置匹配的 API key，或在启动 CCS 的环境中导出，然后刷新状态：
 
 ```bash
 export EXA_API_KEY="your-api-key"
@@ -164,40 +164,40 @@ export EXA_API_KEY="your-api-key"
 ccs config
 ```
 
-If the dashboard says the key is stored but still not ready, check whether `Settings -> Global Env` is disabled. WebSearch reuses that injection path for dashboard-managed keys.
+如果 dashboard 说 key 已存储但仍未就绪，检查 `Settings -> Global Env` 是否被禁用。WebSearch 重用该注入路径用于 dashboard 管理的 keys。
 
-### SearXNG is enabled but not ready
+### SearXNG 已启用但未就绪
 
-1. Confirm the configured base URL is valid (for example `https://search.example.com`)
-2. Confirm the instance exposes `GET /search?q=<query>&format=json`
-3. If the hook reports `SearXNG returned 403: format=json is disabled on this instance`, enable JSON format on that SearXNG deployment or switch to another backend
+1. 确认配置的基础 URL 有效（例如 `https://search.example.com`）
+2. 确认实例暴露 `GET /search?q=<query>&format=json`
+3. 如果 hook 报告 `SearXNG returned 403: format=json is disabled on this instance`，在该 SearXNG 部署上启用 JSON 格式或切换到另一个后端
 
-### I still want Gemini/OpenCode/Grok fallback
+### 我仍想要 Gemini/OpenCode/Grok 回退
 
-Those providers remain supported, but they are no longer the primary path. Enable them explicitly in `config.yaml` if you want them as last-resort fallback.
+这些 providers 仍然支持，但它们不再是主要路径。如需将它们作为最后手段回退，请在 `config.yaml` 中明确启用它们。
 
-### I need to see whether CCS exposed WebSearch or the model bypassed it
+### 我需要查看 CCS 是否公开了 WebSearch 或模型是否绕过了它
 
-Run the launch with `CCS_WEBSEARCH_TRACE=1` (or `CCS_DEBUG=1`). CCS writes a JSONL trace to `~/.ccs/logs/websearch-trace.jsonl` with:
+使用 `CCS_WEBSEARCH_TRACE=1`（或 `CCS_DEBUG=1`）运行。CCS 将 JSONL 跟踪写入 `~/.ccs/logs/websearch-trace.jsonl`，包含：
 
-1. source-side launch records from CCS (`ccs_websearch_launch`)
-2. MCP exposure and call records (`mcp_initialize`, `mcp_tools_list`, `mcp_tool_call_*`)
-3. provider attempt and winner records (`websearch_provider_attempt`, `websearch_provider_success`)
-4. session summaries (`mcp_session_summary`, and headless `headless_websearch_summary` when applicable)
+1. 来自 CCS 的源侧启动记录（`ccs_websearch_launch`）
+2. MCP 暴露和调用记录（`mcp_initialize`、`mcp_tools_list`、`mcp_tool_call_*`）
+3. provider 尝试和获胜者记录（`websearch_provider_attempt`、`websearch_provider_success`）
+4. 会话摘要（`mcp_session_summary`，以及适用时的 headless `headless_websearch_summary`）
 
-Queries are fingerprinted (`queryHash`, `queryLength`) instead of logged raw by default. For headless/delegation runs, `headless_websearch_summary.likelyBypassed=true` means the MCP tool was exposed, no WebSearch call occurred, and Claude fell back to `Bash` or `WebFetch`.
+查询默认用指纹（`queryHash`、`queryLength`）而不是原始日志记录。对于无头/delegation 运行，`headless_websearch_summary.likelyBypassed=true` 表示 MCP 工具已暴露，但没有发生 WebSearch 调用，Claude 回退到 `Bash` 或 `WebFetch`。
 
-### WebSearch returns no results
+### WebSearch 返回无结果
 
-1. Check `websearch.enabled: true`
-2. Keep DuckDuckGo enabled unless you have a strong reason to disable it
-3. If using Exa, Tavily, or Brave, verify the matching API key
-4. Run with `CCS_DEBUG=1` for runtime logs, or `CCS_WEBSEARCH_TRACE=1` for correlated launch/MCP/provider traces
-5. If DuckDuckGo returns a non-result HTML error, retry later or enable another provider. CCS now treats that as a provider failure instead of a false empty result.
+1. 检查 `websearch.enabled: true`
+2. 除非您有强烈理由禁用它，否则保持 DuckDuckGo 启用
+3. 如果使用 Exa、Tavily 或 Brave，验证匹配的 API key
+4. 使用 `CCS_DEBUG=1` 运行以获取运行时日志，或 `CCS_WEBSEARCH_TRACE=1` 获取相关的启动/MCP/provider 跟踪
+5. 如果 DuckDuckGo 返回非结果 HTML 错误，稍后重试或启用另一个 provider。CCS 现在将 provider 失败视为 provider 失败而不是假阳性空结果。
 
-## Security Considerations
+## 安全注意事项
 
-- API keys entered from the dashboard are stored in `~/.ccs/config.yaml` under `global_env` and injected as environment variables at runtime
-- Shell-exported keys still work and are detected as external environment input
-- Never commit API keys to version control
-- Use the dashboard only on trusted machines, and protect `~/.ccs/config.yaml` with normal user-level filesystem permissions
+- 从 dashboard 输入的 API keys 存储在 `~/.ccs/config.yaml` 的 `global_env` 下，并在运行时作为环境变量注入
+- Shell 导出的 keys 仍然有效，并被检测为外部环境输入
+- 永远不要将 API keys 提交到版本控制
+- 仅在可信机器上使用 dashboard，并使用正常的用户级文件系统权限保护 `~/.ccs/config.yaml`

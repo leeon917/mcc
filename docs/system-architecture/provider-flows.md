@@ -1,22 +1,22 @@
-# Provider Integration Flows
+# Provider 集成流程
 
-Last Updated: 2026-05-07
+最后更新：2026-05-07
 
-Detailed provider integration flows including CLIProxyAPI, legacy GLMT compatibility transforms, remote CLIProxy, quota management, and authentication.
+详细的 provider 集成流程，包括 CLIProxyAPI、旧版 GLMT 兼容性转换、远程 CLIProxy、配额管理和认证。
 
 ---
 
-## CLIProxyAPI Flow
+## CLIProxyAPI 流程
 
-### Overview
+### 概述
 
-CLIProxyAPI is a local OAuth proxy binary that enables seamless integration with multiple AI providers. CCS manages the binary and configuration automatically.
+CLIProxyAPI 是一个本地 OAuth 代理二进制文件，实现与多个 AI providers 的无缝集成。CCS 自动管理二进制文件和配置。
 
-### Local Backend Choice
+### 本地后端选择
 
-CCS defaults to the original `router-for-me/CLIProxyAPI` backend because it is the stable MIT upstream. The `plus` backend is an explicit opt-in path that downloads the community-maintained `kaitranntt/CLIProxyAPIPlus` fork for providers that still require Plus-only support, such as Kiro, Cursor, GitLab, CodeBuddy, Kilo, and deprecated GitHub Copilot compatibility. CCS does not silently downgrade `backend: plus` to `original`; users choose that backend deliberately when they need those providers.
+CCS 默认为原始 `router-for-me/CLIProxyAPI` 后端，因为它是稳定的 MIT 上游。`plus` 后端是一个明确的可选路径，下载社区维护的 `kaitranntt/CLIProxyAPIPlus` fork，用于仍需要 Plus 仅支持的 providers，如 Kiro、Cursor、GitLab、CodeBuddy、Kilo 和弃用的 GitHub Copilot 兼容性。CCS 不会将 `backend: plus` 静默降级到 `original`；用户在需要那些 providers 时有意选择该后端。
 
-Generated local CLIProxy configs also keep the management dashboard aligned with the selected backend. `backend: original` uses upstream CPAMC (`router-for-me/Cli-Proxy-API-Management-Center`), while `backend: plus` uses the CCS-maintained dashboard fork (`kaitranntt/Cli-Proxy-API-Management-Center`). Advanced users can override the generated `remote-management.panel-github-repository` value by setting `cliproxy.management_panel_repository` in `~/.ccs/config.yaml`; CCS will regenerate stale local CLIProxy configs when the expected dashboard repository changes.
+生成的本地 CLIProxy 配置还保持管理 dashboard 与选择的后端对齐。`backend: original` 使用上游 CPAMC（`router-for-me/Cli-Proxy-API-Management-Center`），而 `backend: plus` 使用 CCS 维护的 dashboard fork（`kaitranntt/Cli-Proxy-API-Management-Center`）。高级用户可以通过在 `~/.ccs/config.yaml` 中设置 `cliproxy.management_panel_repository` 来覆盖生成的 `remote-management.panel-github-repository` 值；当预期 dashboard 仓库更改时，CCS 将重新生成陈旧的本地 CLIProxy 配置。
 
 ```
 +===========================================================================+
@@ -77,7 +77,7 @@ Generated local CLIProxy configs also keep the management dashboard aligned with
                     +---> OpenAI-compatible endpoints
 ```
 
-### Supported Hardcoded Providers
+### 支持的内置 Providers
 
 | Provider | ID | Auth Method | Port | Binary |
 |----------|----|----|------|--------|
@@ -88,21 +88,21 @@ Generated local CLIProxy configs also keep the management dashboard aligned with
 | GitHub Copilot (deprecated) | `ghcp` | Device Code | none | CLIProxyAPIPlus fork |
 | Cursor | `cursor` | Browser URL polling | none | CLIProxyAPIPlus fork |
 
-### Codex Duplicate-Email Account Identity
+### Codex 重复邮箱账户身份
 
-Codex can legitimately produce multiple auth files for the same email when the user has both a team/business login and a personal/free login. CCS now treats those as separate accounts instead of collapsing them by email.
+Codex 可以在同一 email 用户同时拥有团队/业务登录和个人/免费登录时合法地产生多个 auth 文件。CCS 现在将那些视为独立账户，而不是按 email 合并。
 
-- Internal account IDs stay duplicate-aware for Codex only: `email#variant`
-- Variant keys are derived from the auth filename, for example `kaidu.kd@gmail.com#04a0f049-team` and `kaidu.kd@gmail.com#free`
-- Dashboard surfaces continue to show the canonical email, with a compact variant badge such as `Team` or `Free`
-- Quota fetch resolves the exact registry `tokenFile` for the selected account instead of scanning by email and taking the first match
-- Live usage/account monitor stats key by `provider + account identity`, so duplicate Codex emails no longer merge into one runtime bucket
+- 内部账户 ID 保持对 Codex 仅知的重复感知：`email#variant`
+- 变体 key 来自 auth 文件名，例如 `kaidu.kd@gmail.com#04a0f049-team` 和 `kaidu.kd@gmail.com#free`
+- Dashboard 表面继续显示规范 email，带紧凑变体徽章如 `Team` 或 `Free`
+- 配额获取为选定账户解析精确的注册表 `tokenFile`，而不是按 email 扫描并取第一个匹配
+- 实时使用/账户监视器统计按键为 `provider + account identity`，因此重复的 Codex emails 不再合并到一个运行时桶中
 
-This preserves the user-visible distinction between business and personal Codex sessions while keeping other providers on their existing email-backed identity model.
+这保留了用户可见的业务和个人 Codex 会话之间的区别，同时保持其他 providers 在其现有 email 支持的身份模型上。
 
-### Hardcoded Provider Detection
+### 内置 Provider 检测
 
-CCS detects hardcoded providers via `profile-detector.ts` and routes through `execClaudeWithCLIProxy()`.
+CCS 通过 `profile-detector.ts` 检测内置 providers 并通过 `execClaudeWithCLIProxy()` 路由。
 
 ```typescript
 // Profile name matching
@@ -115,11 +115,11 @@ if (hardcodedProviders.includes(profileName)) {
 
 ---
 
-## Legacy GLMT Compatibility Flow
+## 旧版 GLMT 兼容性流程
 
-### Overview
+### 概述
 
-GLMT is no longer a marketed runtime surface in CCS. Existing `glmt` profiles are kept as a compatibility path and normalized at launch to the direct GLM endpoint. The `src/glmt/` module remains because Cursor response translation still imports its transformer pipeline.
+GLMT 不再是 CCS 中营销的运行时表面。现有的 `glmt` profiles 作为兼容性路径保留，并在启动时规范化为直接 GLM 端点。`src/glmt/` 模块仍然保留，因为 Cursor 响应转换仍导入其 transformer 管道。
 
 ```
 +===========================================================================+
@@ -146,7 +146,7 @@ GLMT is no longer a marketed runtime surface in CCS. Existing `glmt` profiles ar
   +------------------+
 ```
 
-### Supported Migration Targets
+### 支持的迁移目标
 
 | Provider | Config Key | Endpoint | Auth |
 |----------|------------|----------|------|
@@ -154,11 +154,11 @@ GLMT is no longer a marketed runtime surface in CCS. Existing `glmt` profiles ar
 | Kimi API | `km` | https://api.kimi.com/coding/ | API key |
 | Legacy compatibility | `glmt` | normalized to direct GLM at runtime | existing profile only |
 
-Use `ccs glm` for Z.AI profiles and `ccs km` for reasoning-first Kimi API profiles. Keep `glmt` only when migrating an existing settings file.
+使用 `ccs glm` 用于 Z.AI profiles 和 `ccs km` 用于 reasoning-first Kimi API profiles。仅在迁移现有设置文件时保留 `glmt`。
 
-### Runtime Handling
+### 运行时处理
 
-CCS detects the deprecated `glmt` profile name and normalizes legacy proxy-only settings before dispatching through the normal settings-profile flow:
+CCS 检测弃用的 `glmt` profile 名称，并在通过正常 settings-profile 流程分派之前规范旧版仅代理设置：
 
 ```typescript
 if (isDeprecatedGlmtProfileName(profileName)) {
@@ -169,11 +169,11 @@ if (isDeprecatedGlmtProfileName(profileName)) {
 
 ---
 
-## Remote CLIProxy Flow (v7.1)
+## 远程 CLIProxy 流程（v7.1）
 
-### Overview
+### 概述
 
-Remote CLIProxy enables CCS to delegate authentication to a central proxy server instead of spawning a local binary.
+远程 CLIProxy 使 CCS 能够将认证委托给中央代理服务器，而不是生成本地二进制文件。
 
 ```
 +===========================================================================+
@@ -232,7 +232,7 @@ Remote CLIProxy enables CCS to delegate authentication to a central proxy server
     CCS_PROXY_FALLBACK_ENABLED  Enable fallback (true/false)
 ```
 
-### Configuration Resolution
+### 配置解析
 
 ```typescript
 // proxy-config-resolver.ts: Priority order
@@ -244,7 +244,7 @@ const resolved = {
 };
 ```
 
-### Health Check
+### 健康检查
 
 ```typescript
 // remote-proxy-client.ts
@@ -264,12 +264,11 @@ async function checkRemoteProxyHealth(config: ResolvedProxyConfig): Promise<bool
 
 ---
 
-## Quota Management Flow (v7.14)
+## 配额管理流程（v7.14）
 
-### Overview
+### 概述
 
-Hybrid quota management enables automatic detection of exhausted accounts and failover to next available account.
-When CCS detects exhaustion and a healthy fallback exists, it temporarily pauses the exhausted account out of CLIProxy rotation and automatically resumes that pause after the configured cooldown expires. This durable self-pause uses the same account registry and token movement path as dashboard/manual pause, so the dashboard shows the account as paused and CLIProxy cannot rediscover its token from the live `auth/` folder.
+混合配额管理实现耗尽账户的自动检测和故障转移到下一个可用账户。当 CCS 检测到耗尽且存在健康的回退时，它暂时暂停耗尽账户的 CLIProxy 轮换，并在配置的冷却到期后自动恢复该暂停。这种持久性自暂停使用与 dashboard/手动暂停相同的账户注册表和 token 移动路径，因此 dashboard 将账户显示为暂停，CLIProxy 无法从活动的 `auth/` 文件夹重新发现其 token。
 
 ```
 +===========================================================================+
@@ -325,7 +324,7 @@ When CCS detects exhaustion and a healthy fallback exists, it temporarily pauses
     - Quota usage display
 ```
 
-### Account Selection Algorithm
+### 账户选择算法
 
 ```typescript
 // quota-manager.ts: Best account selection
@@ -347,11 +346,11 @@ function selectBestAccount(accounts: AccountInfo[]): AccountInfo | null {
 
 ---
 
-## Authentication Flow
+## 认证流程
 
 ### OAuth Providers - Authorization Code Flow
 
-**Providers**: Gemini, Codex, Antigravity, Kiro (aws method)
+**Providers**：Gemini、Codex、Antigravity、Kiro（aws 方法）
 
 ```
 +===========================================================================+
@@ -391,11 +390,11 @@ function selectBestAccount(accounts: AccountInfo[]): AccountInfo | null {
 
 ### OAuth Providers - Device Code Flow
 
-**Providers**: GitHub Copilot (ghcp, deprecated compatibility)
+**Providers**：GitHub Copilot（ghcp，弃用的兼容性）
 
-Provider identity note:
-- Providers that do not expose a reliable email no longer require a manual nickname during first auth.
-- CCS derives a stable internal account identifier from the token/cache context and still allows the user to rename the account later.
+Provider 身份说明：
+- 不暴露可靠 email 的 providers 在首次认证时不再需要手动昵称。
+- CCS 从 token/cache 上下文派生稳定的内部账户标识符，并仍允许用户稍后重命名账户。
 
 ```
 +===========================================================================+
@@ -432,11 +431,11 @@ Provider identity note:
 
 ### Kiro OAuth - Method-Aware Flow
 
-**Supported methods**:
-- `aws`: Device Code (default, AWS org friendly)
-- `aws-authcode`: Authorization Code via CLI flow
-- `google`: Social OAuth via management API
-- `github`: Social OAuth via management API (Dashboard flow)
+**支持的方法**：
+- `aws`：Device Code（默认，AWS org 友好）
+- `aws-authcode`：Authorization Code 通过 CLI 流程
+- `google`：Social OAuth 通过管理 API
+- `github`：Social OAuth 通过管理 API（Dashboard 流程）
 
 ```
 +===========================================================================+
@@ -527,11 +526,11 @@ Provider identity note:
 
 ---
 
-## Image Analysis Hook Flow (v7.34)
+## 图片分析 Hook 流程（v7.34）
 
-### Overview
+### 概述
 
-Image Analysis Hook enables vision model proxying through CLIProxy with automatic injection for all profile types.
+图片分析 Hook 实现通过 CLIProxy 的视觉模型代理，为所有 profile 类型自动注入。
 
 ```
 +===========================================================================+
@@ -572,7 +571,7 @@ Image Analysis Hook enables vision model proxying through CLIProxy with automati
   Text description returned to Claude CLI
 ```
 
-### Runtime Environment
+### 运行时环境
 
 ```typescript
 // getImageAnalysisHookEnv()
@@ -583,7 +582,7 @@ Image Analysis Hook enables vision model proxying through CLIProxy with automati
 }
 ```
 
-### Provider Support
+### Provider 支持
 
 | Provider | Vision Support | Notes |
 |----------|---|---|
@@ -596,9 +595,9 @@ Image Analysis Hook enables vision model proxying through CLIProxy with automati
 
 ---
 
-## Session Tracking
+## 会话跟踪
 
-All execution paths record session metadata including target CLI used:
+所有执行路径记录包括使用的目标 CLI 的会话元数据：
 
 ```typescript
 {
@@ -613,11 +612,11 @@ All execution paths record session metadata including target CLI used:
 }
 ```
 
-This enables analytics on target CLI usage and adoption.
+这支持对目标 CLI 使用和采用的分析。
 
 ---
 
-## Related Documentation
+## 相关文档
 
 - [System Architecture Index](./index.md) — Overall system design
 - [Target Adapters](./target-adapters.md) — Multi-CLI adapter pattern

@@ -1,61 +1,61 @@
-# Logging Contract
+# 日志契约
 
-Single source of truth for structured backend logging in CCS CLI. Companion to GitHub issues #1138 (umbrella) and #1141 (backend instrumentation).
+CCS CLI 结构化后端日志的单一真实来源。GitHub issues #1138（伞式）和 #1141（后端检测）的配套文档。
 
-## Overview
+## 概述
 
-CCS emits structured JSONL log entries for backend behavior (proxy daemons, OAuth flows, target spawn lifecycle, executor errors, etc.). This document defines the canonical schema, request-correlation pattern, lifecycle stages, and redaction policy.
+CCS 为后端行为（代理 daemons、OAuth 流程、目标生成生命周期、执行器错误等）发出结构化 JSONL 日志条目。本文档定义了规范 schema、请求关联模式、生命周期阶段和重定向策略。
 
-> CLI text output (`ok / info / warn / fail` from `src/utils/ui.ts`) is **NOT** affected by this contract. Logs are a separate channel — never printed to stdout/stderr.
+> CLI 文本输出（`src/utils/ui.ts` 中的 `ok / info / warn / fail`）**不受此契约影响**。日志是一个单独的通道——永远不要打印到 stdout/stderr。
 
-## Schema (`LogEntry`)
+## Schema（`LogEntry`）
 
-Defined in `src/services/logging/log-types.ts`.
+定义在 `src/services/logging/log-types.ts`。
 
-| Field | Type | Required | Notes |
+| 字段 | 类型 | 必需 | 备注 |
 |-------|------|----------|-------|
-| `id` | `string` | yes | UUID per entry. |
-| `timestamp` | `string` | yes | ISO 8601. |
-| `level` | `'error'\|'warn'\|'info'\|'debug'` | yes | |
-| `source` | `string` | yes | Module-scoped identifier (e.g. `proxy:openai-compat:messages`). |
-| `event` | `string` | yes | Dotted machine-readable event name (e.g. `request.received`). |
-| `message` | `string` | yes | Human-readable summary. |
-| `processId` | `number` | yes | `process.pid`. |
-| `runId` | `string` | yes | Stable per-process id. |
-| `context` | `object` | no | Free-form structured fields (redacted). |
-| `requestId` | `string` | no | Correlates entries belonging to one inbound request across stages. |
-| `stage` | `LogStage` | no | Lifecycle stage tag. |
-| `latencyMs` | `number` | no | Elapsed ms (typically on `respond` / `cleanup`). |
-| `error` | `{name, message, code?, stack?}` | no | Structured error metadata; never raw token strings. |
+| `id` | `string` | 是 | 每个条目的 UUID。 |
+| `timestamp` | `string` | 是 | ISO 8601。 |
+| `level` | `'error'\|'warn'\|'info'\|'debug'` | 是 | |
+| `source` | `string` | 是 | 模块范围的标识符（例如 `proxy:openai-compat:messages`）。 |
+| `event` | `string` | 是 | 点分隔的机器可读事件名称（例如 `request.received`）。 |
+| `message` | `string` | 是 | 人类可读摘要。 |
+| `processId` | `number` | 是 | `process.pid`。 |
+| `runId` | `string` | 是 | 每个进程稳定的 id。 |
+| `context` | `object` | 否 | 自由形式的结构化字段（已重定向）。 |
+| `requestId` | `string` | 否 | 关联属于一个入站请求跨阶段的条目。 |
+| `stage` | `LogStage` | 否 | 生命周期阶段标签。 |
+| `latencyMs` | `number` | 否 | 经过的毫秒数（通常在 `respond` / `cleanup` 上）。 |
+| `error` | `{name, message, code?, stack?}` | 否 | 结构化错误元数据；绝不是原始 token 字符串。 |
 
-Old free-form entries (no `requestId` / `stage`) are still valid; new fields are additive.
+旧的自由形式条目（无 `requestId` / `stage`）仍然有效；新字段是添加性的。
 
-### Example
+### 示例
 
 ```jsonl
 {"id":"...","timestamp":"2026-04-30T12:34:56.000Z","level":"info","source":"proxy:openai-compat:messages","event":"request.received","message":"Proxy /v1/messages request received","processId":42,"runId":"r1","requestId":"a1b2...","stage":"intake","context":{"method":"POST"}}
 ```
 
-## Lifecycle Stages
+## 生命周期阶段
 
-`LogStage` is one of:
+`LogStage` 是以下之一：
 
-| Stage | When to emit |
+| 阶段 | 何时发出 |
 |-------|--------------|
-| `intake` | Inbound request received at an entry edge (HTTP handler, CLI dispatch). |
-| `route` | Destination/profile/target resolution. |
-| `auth` | Authentication / authorization (token exchange, profile auth). |
-| `dispatch` | Outbound request prepared / child process spawned. |
-| `upstream` | Upstream call in flight (provider HTTP / spawned child running). |
-| `transform` | Payload translation (request/response shape conversion). |
-| `respond` | Response written / dispatched (`latencyMs` typically populated). |
-| `cleanup` | Error path, abort, teardown. |
+| `intake` | 在入口边缘接收入站请求（HTTP 处理器、CLI 调度）。 |
+| `route` | 目标/profile/目标解析。 |
+| `auth` | 认证/授权（token 交换、profile 认证）。 |
+| `dispatch` | 出站请求已准备/子进程已生成。 |
+| `upstream` | 上游调用进行中（provider HTTP / 生成的子进程运行中）。 |
+| `transform` | Payload 转换（请求/响应形状转换）。 |
+| `respond` | 响应已写入/已分派（`latencyMs` 通常已填充）。 |
+| `cleanup` | 错误路径、中止、拆卸。 |
 
-Stages may be skipped or repeated. Streaming responses tag `upstream` only at start/end (NOT per chunk).
+阶段可以跳过或重复。流式响应仅在开始/结束时标记 `upstream`（不是每个 chunk）。
 
-## RequestId Propagation (AsyncLocalStorage)
+## RequestId 传播（AsyncLocalStorage）
 
-`requestId` is propagated implicitly via Node `AsyncLocalStorage`. Entry edges wrap their handler in `withRequestContext`; every `createLogger`-emitted entry inside the context auto-merges `requestId` from the active store.
+`requestId` 通过 Node `AsyncLocalStorage` 隐式传播。入口边缘将其处理器包装在 `withRequestContext` 中；内部 `createLogger` 发出的每个条目从活动存储自动合并 `requestId`。
 
 ```ts
 import { withRequestContext, createLogger } from './services/logging';
@@ -67,93 +67,93 @@ http.createServer((req, res) => {
   res.setHeader('x-ccs-request-id', requestId);
   withRequestContext({ requestId }, async () => {
     logger.stage('intake', 'request.received', 'inbound');
-    // ... downstream work emits with the same requestId
+    // ... 下游工作发出相同的 requestId
   });
 });
 ```
 
-### Cross-daemon header
+### 跨 daemon 头
 
-`x-ccs-request-id` round-trips across the proxy edge:
-- Inbound: if the header is present and matches the UUID-ish guard (`/^[A-Za-z0-9._-]{8,128}$/`), it is reused; otherwise a fresh UUID is minted.
-- Outbound (response): the resolved id is echoed back via `res.setHeader('x-ccs-request-id', ...)`.
-- When CCS calls another daemon (copilot, cursor, glmt), forward the active id in the same header so that daemon can correlate.
+`x-ccs-request-id` 在代理边缘往返：
+- 入站：如果头存在且匹配 UUID-ish guard（`/^[A-Za-z0-9._-]{8,128}$/`），则重用；否则生成新的 UUID。
+- 出站（响应）：解析的 id 通过 `res.setHeader('x-ccs-request-id', ...)` 回显。
+- 当 CCS 调用另一个 daemon（copilot、cursor、glmt）时，在同一头中转发活动 id，以便该 daemon 可以关联。
 
-### Ordering guarantee
+### 排序保证
 
-Emit-time ordering of entries within a single `requestId` is monotonic — the active context is single-threaded relative to the request, so `timestamp` ordering reflects emit order. The UI layer (#1142) consumes this guarantee.
+单个 `requestId` 内条目的发出时间排序是单调的——活动上下文相对于请求是单线程的，因此 `timestamp` 排序反映发出顺序。UI 层（#1142）消费此保证。
 
-### What NOT to put in the context
+### 不要放在 context 中的内容
 
-The ALS context object is mixed into every downstream entry. Never store:
-- Raw tokens, API keys, refresh tokens, OAuth codes
-- Raw request/response bodies
-- User-supplied secrets
+ALS context 对象混合到每个下游条目。永远不要存储：
+- 原始 tokens、API keys、refresh tokens、OAuth codes
+- 原始请求/响应体
+- 用户提供的 secrets
 
-Only benign correlation metadata: `requestId`, `method`, `path`, `command`, `profile`.
+只有良性关联元数据：`requestId`、`method`、`path`、`command`、`profile`。
 
-### Worker threads / spawned children
+### Worker 线程 / 生成的子进程
 
-ALS context is **not** inherited by worker threads or `child_process.spawn` stdio pipes. At those boundaries, mint a fresh `requestId` at the child entry and pass the parent id explicitly via env var or header for correlation.
+ALS context **不**由 worker 线程或 `child_process.spawn` stdio pipes 继承。在这些边界处，在子入口处生成新的 `requestId`，并通过 env var 或头显式传递父 id 以进行关联。
 
-## Redaction
+## 重定向
 
-`src/services/logging/log-redaction.ts` is the single source of truth.
+`src/services/logging/log-redaction.ts` 是单一真实来源。
 
-### Sensitive key matcher
+### 敏感 key 匹配器
 
-`SENSITIVE_KEY_PATTERN` matches (case-insensitive, with `_` / `-` / camelCase variants):
-`authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `password`, `password_hash`, `secret`, `client_secret`, `token`, `auth_token`, `access_token`, `refresh_token`, `id_token`, `bearer`, `assertion`, `api_key`, `x-api-key`, `x-goog-api-key`, `management_key`, `copilot_token`, `cursor_session_key`, `oauth_code`, `auth_code`.
+`SENSITIVE_KEY_PATTERN` 匹配（不区分大小写，带 `_` / `-` / camelCase 变体）：
+`authorization`、`proxy-authorization`、`cookie`、`set-cookie`、`password`、`password_hash`、`secret`、`client_secret`、`token`、`auth_token`、`access_token`、`refresh_token`、`id_token`、`bearer`、`assertion`、`api_key`、`x-api-key`、`x-goog-api-key`、`management_key`、`copilot_token`、`cursor_session_key`、`oauth_code`、`auth_code`。
 
-String/object values for matching keys are replaced with `[redacted]`. Numeric/boolean values pass through (e.g., `expires_at` epoch numbers stay readable).
+匹配 key 的字符串/对象值替换为 `[redacted]`。数字/布尔值通过（例如 `expires_at` 纪元数保持可读）。
 
-### Auth-scheme value masking
+### 认证方案值掩码
 
-Raw string values whose prefix matches `^(Bearer|Basic|Token)\s+\S+` are rewritten to `<scheme> [redacted]` even when nested under non-sensitive keys.
+前缀匹配 `^(Bearer|Basic|Token)\s+\S+` 的原始字符串值被重写为 `<scheme> [redacted]`，即使嵌套在非敏感 key 下。
 
-### Argv redaction
+### Argv 重定向
 
-`redactArgv(argv)` redacts the value following any sensitive flag (`--token`, `--api-key`, `--auth`, `--bearer`, `--secret`, `--client-secret`, `--access-token`, `--refresh-token`, `--id-token`, `--password`).
+`redactArgv(argv)` 重定向敏感标志（`--token`、`--api-key`、`--auth`、`--bearer`、`--secret`、`--client-secret`、`--access-token`、`--refresh-token`、`--id-token`、`--password`）后的值。
 
-### Adding new sensitive keys
+### 添加新的敏感 keys
 
-1. Extend `SENSITIVE_KEY_PATTERN` in `src/services/logging/log-redaction.ts`.
-2. Add a unit test in `tests/unit/services/logging/log-redaction-extended.test.ts`.
-3. Verify regex stays O(1) per key (no catastrophic backtracking).
+1. 在 `src/services/logging/log-redaction.ts` 中扩展 `SENSITIVE_KEY_PATTERN`。
+2. 在 `tests/unit/services/logging/log-redaction-extended.test.ts` 中添加单元测试。
+3. 验证正则表达式保持每 key O(1)（无灾难性回溯）。
 
-## Contributor Guide
+## 贡献者指南
 
-### When to use `logger.stage()` vs `logger.info()`
+### 何时使用 `logger.stage()` vs `logger.info()`
 
-Use `stage()` whenever the entry corresponds to one of the canonical lifecycle stages — this is what observability tooling and the dashboard rely on. Use `info()` / `warn()` / `error()` for one-off events that don't fit a stage.
+每当条目对应于规范生命周期阶段之一时使用 `stage()`——这是可观测性工具和 dashboard 依赖的。使用 `info()` / `warn()` / `error()` 处理不符合阶段的一次性事件。
 
-### What NOT to log
+### 不要记录的内容
 
-- Token values (use metadata: `expires_at`, `scopes`, account display name).
-- Request/response bodies (sample lengths only).
-- Authorization headers (log header *names* present, not values).
+- Token 值（使用元数据：`expires_at`、`scopes`、账户显示名称）。
+- 请求/响应体（仅采样长度）。
+- 授权头（记录存在的头*名称*，而不是值）。
 
-### Level guidance
+### 级别指导
 
-| Level | Use for |
-|-------|---------|
-| `error` | Failures requiring action (cleanup stage). |
-| `warn` | Recoverable issues (auth rejected, route fallback). |
-| `info` | Lifecycle stage entries by default. |
-| `debug` | High-volume detail (per-chunk stream metrics, lock acquire/release). |
+| 级别 | 用于 |
+|-------|-------|
+| `error` | 需要操作的失败（cleanup 阶段）。 |
+| `warn` | 可恢复问题（认证拒绝、路由回退）。 |
+| `info` | 默认的生命周期阶段条目。 |
+| `debug` | 高容量细节（每个 chunk 流指标、锁获取/释放）。 |
 
-### Level config
+### 级别配置
 
-Default level is `info`. Configure via `logging.level` in `~/.ccs/config.yaml`. Streaming providers MUST gate per-chunk metrics behind `debug`.
+默认级别是 `info`。通过 `~/.ccs/config.yaml` 中的 `logging.level` 配置。流式 providers 必须将每个 chunk 指标关在 `debug` 后面。
 
-## Backward Compatibility
+## 向后兼容
 
-- All new `LogEntry` fields (`requestId`, `stage`, `latencyMs`, `error`) are optional. Old readers ignore them.
-- Existing `console.*` UX prints in `src/commands/`, `src/utils/ui.ts`, and similar user-facing paths are intentionally **not** converted to logger.
-- `/api/logs` reader unchanged in this PR; UI surfacing of new fields tracked under #1142.
+- 所有新的 `LogEntry` 字段（`requestId`、`stage`、`latencyMs`、`error`）都是可选的。旧读者忽略它们。
+- `src/commands/`、`src/utils/ui.ts` 和类似面向用户的路径中现有的 `console.*` UX 打印有意**不**转换为 logger。
+- 本 PR 中 `/api/logs` 读取器未更改；新字段在 dashboard 上的公开由 #1142 跟踪。
 
-## Future Work
+## 未来工作
 
-- UI surfacing of `requestId` / `stage` / `latencyMs` in the dashboard (#1142).
-- `ccs logs` CLI improvements (filter by `requestId` / `stage`).
-- Per-stage performance budgets (see #1071).
+- 在 dashboard 中公开 `requestId` / `stage` / `latencyMs`（#1142）。
+- `ccs logs` CLI 改进（按 `requestId` / `stage` 过滤）。
+- 每个阶段性能预算（见 #1071）。

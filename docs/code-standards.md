@@ -1,105 +1,105 @@
-# CCS Code Standards
+# CCS 代码规范
 
-Last Updated: 2026-04-07
+最后更新：2026-04-07
 
-Code standards, modularization patterns, and conventions for the CCS codebase.
+CCS 代码库的代码标准、模块化模式和约定。
 
 ---
 
-## Core Principles
+## 核心原则
 
 ### YAGNI (You Aren't Gonna Need It)
-- No features "just in case"
-- Only implement what is currently needed
-- Delete unused code rather than commenting it out
+- 不要"以防万一"地添加功能
+- 只实现当前需要的功能
+- 删除未使用的代码而不是注释掉
 
 ### KISS (Keep It Simple, Stupid)
-- Prefer simple solutions over clever ones
-- Reduce complexity at every opportunity
-- Use established patterns over custom implementations
+- 优先选择简单解决方案而不是聪明的方案
+- 随时降低复杂性
+- 使用成熟模式而不是自定义实现
 
 ### DRY (Don't Repeat Yourself)
-- One source of truth for configuration
-- Extract common logic into shared utilities
-- Use barrel exports to centralize imports
+- 配置只有一个真实来源
+- 将通用逻辑提取到共享工具库
+- 使用 barrel exports 集中导入
 
 ---
 
-## File Organization
+## 文件组织
 
-### Directory Structure Rules
+### 目录结构规则
 
-1. **Domain-based organization**: Group files by business domain, not by file type
-2. **Barrel exports required**: Every directory must have an `index.ts` aggregating exports
-3. **Flat within depth**: Keep nesting to 3 levels maximum
-4. **Co-location**: Keep related files together (component + hooks + utils)
+1. **按领域组织**：按业务领域分组文件，而不是按文件类型
+2. **Barrel exports 必需**：每个目录必须有聚合导出的 `index.ts`
+3. **深度扁平化**：最多保持 3 层嵌套
+4. **就近放置**：将相关文件放在一起（component + hooks + utils）
 
-### File Naming Conventions
+### 文件命名约定
 
-| Convention | Example | When to Use |
+| 约定 | 示例 | 使用时机 |
 |------------|---------|-------------|
-| kebab-case | `cliproxy-executor.ts` | All TypeScript/TSX files |
-| kebab-case | `profile-detector.ts` | Multi-word file names |
-| *-adapter.ts | `claude-adapter.ts`, `droid-adapter.ts` | TargetAdapter implementations |
-| *-detector.ts | `droid-detector.ts` | Binary detection logic |
-| *-manager.ts | `droid-config-manager.ts` | Config/state management |
-| PascalCase | `BinaryManager` | Class exports only |
-| camelCase | `detectProfile` | Function exports |
+| kebab-case | `cliproxy-executor.ts` | 所有 TypeScript/TSX 文件 |
+| kebab-case | `profile-detector.ts` | 多词文件名 |
+| *-adapter.ts | `claude-adapter.ts`, `droid-adapter.ts` | TargetAdapter 实现 |
+| *-detector.ts | `droid-detector.ts` | 二进制检测逻辑 |
+| *-manager.ts | `droid-config-manager.ts` | 配置/状态管理 |
+| PascalCase | `BinaryManager` | 仅类导出 |
+| camelCase | `detectProfile` | 函数导出 |
 
-**File names should be descriptive**: LLMs should understand the file's purpose from its name alone without reading content.
+**文件名应该具有描述性**：LLM 应该能从文件名本身理解文件的用途，而无需阅读内容。
 
-### Correct Examples
+### 正确示例
 
 ```
-src/cliproxy/binary-manager.ts      # Binary management logic
-src/commands/doctor-command.ts      # Doctor CLI command handler
+src/cliproxy/binary-manager.ts      # 二进制管理逻辑
+src/commands/doctor-command.ts      # Doctor CLI 命令处理器
 ui/src/components/cliproxy/provider-editor/index.tsx
 ```
 
-### Incorrect Examples
+### 错误示例
 
 ```
-src/utils/helper.ts                 # Too vague
-src/cliproxy/manager.ts             # Which manager?
-ui/src/components/Editor.tsx        # Not kebab-case
+src/utils/helper.ts                 # 太模糊
+src/cliproxy/manager.ts             # 哪个 manager？
+ui/src/components/Editor.tsx        # 不是 kebab-case
 ```
 
 ---
 
-## File Size Limit: 200 Lines
+## 文件大小限制：200 行
 
-**Target**: All code files should be under 200 lines.
+**目标**：所有代码文件应少于 200 行。
 
-**Exceptions** (with justification):
-- Data files (model-pricing.ts, model-catalog.ts)
-- Entry points with routing logic (ccs.ts)
-- Complex transformation logic that cannot be meaningfully split
+**例外**（需要说明理由）：
+- 数据文件（model-pricing.ts, model-catalog.ts）
+- 具有路由逻辑的入口点（ccs.ts）
+- 无法有意义拆分的大型转换逻辑
 
-### Why 200 Lines?
+### 为什么是 200 行？
 
-1. **Context efficiency**: LLMs process smaller files faster
-2. **Single responsibility**: Forces focused, testable modules
-3. **Navigation**: Easier to scan and understand
-4. **Maintainability**: Reduces merge conflicts
+1. **上下文效率**：LLM 处理小文件更快
+2. **单一职责**：强制模块专注、可测试
+3. **导航**：更容易扫描和理解
+4. **可维护性**：减少合并冲突
 
-### When Files Exceed 200 Lines
+### 当文件超过 200 行时
 
-If a file grows beyond 200 lines:
+如果文件增长超过 200 行：
 
-1. **Identify extraction candidates**:
-   - Helper functions that could be utilities
-   - Constants and type definitions
-   - Subcomponents within React components
-   - Related logic that forms a cohesive unit
+1. **识别可提取的候选**：
+   - 可以作为工具的辅助函数
+   - 常量和类型定义
+   - React 组件中的子组件
+   - 形成内聚单元的相关逻辑
 
-2. **Create subdirectory structure**:
+2. **创建子目录结构**：
    ```
-   # Before
+   # 之前
    provider-editor.tsx (921 lines)
 
-   # After
+   # 之后
    provider-editor/
-   ├── index.tsx           # Main component (200 lines)
+   ├── index.tsx           # 主组件 (200 lines)
    ├── model-mapping-form.tsx
    ├── endpoint-config.tsx
    ├── auth-section.tsx
@@ -108,65 +108,65 @@ If a file grows beyond 200 lines:
    └── utils.ts
    ```
 
-3. **Preserve public API**: Main export remains the same through barrel export
+3. **保留公共 API**：通过 barrel 导出保持主导出不变
 
 ---
 
-## Barrel Export Pattern
+## Barrel Export 模式
 
-### What is a Barrel Export?
+### 什么是 Barrel Export？
 
-An `index.ts` file that aggregates and re-exports module contents:
+聚合和重新导出模块内容的 `index.ts` 文件：
 
 ```typescript
 // src/cliproxy/index.ts
 
-// Types (with explicit type keyword)
+// 类型（使用明确的 type 关键字）
 export type { PlatformInfo, BinaryInfo } from './types';
 
-// Functions
+// 函数
 export { detectPlatform } from './platform-detector';
 export { BinaryManager } from './binary-manager';
 
-// From subdirectories
+// 从子目录
 export * from './auth';
 export * from './services';
 ```
 
-### Rules for Barrel Exports
+### Barrel Export 规则
 
-1. **Every domain directory must have `index.ts`**
-2. **Export types with `export type`** for tree-shaking
-3. **Re-export subdirectories** for deep access
-4. **Keep barrel exports flat** - no logic, only exports
+1. **每个领域目录必须有 `index.ts`**
+2. **使用 `export type` 导出类型以支持 tree-shaking**
+3. **重新导出子目录以支持深度访问**
+4. **保持 barrel exports 扁平** - 无逻辑，只有导出
 
-### Import Patterns
+### 导入模式
 
 ```typescript
-// CORRECT: Import from domain barrel
+// 正确：从领域 barrel 导入
 import { execClaudeWithCLIProxy, CLIProxyProvider } from '../cliproxy';
 import { Config, Settings } from '../types';
 
-// INCORRECT: Import from specific file (bypasses barrel)
+// 错误：从特定文件导入（绕过 barrel）
 import { execClaudeWithCLIProxy } from '../cliproxy/cliproxy-executor';
 ```
 
-### Exception: Deep Imports
+### 深度导入例外
 
-Allowed when:
-- Importing private utilities not exposed in barrel
-- Circular dependency avoidance
-- Performance-critical tree-shaking
+允许的情况：
+- 导入 barrel 中未暴露的私有工具
+- 避免循环依赖
+- 性能关键的 tree-shaking
 
 ---
 
-## Target Adapter Pattern
+## Target Adapter 模式
 
-The target adapter pattern enables pluggable support for multiple CLI implementations (Claude Code, Factory Droid, Codex CLI, etc.) while preserving a unified profile system.
+target adapter 模式支持多种 CLI 实现（Claude Code、Factory Droid、Codex CLI 等）的可插拔支持，同时保持统一的 profile 系统。
 
-### Pattern Overview
+### 模式概述
 
-**Each CLI target implements a `TargetAdapter` interface:**
+**每个 CLI 目标实现 `TargetAdapter` 接口：**
 
 ```typescript
 interface TargetAdapter {
@@ -182,50 +182,50 @@ interface TargetAdapter {
 }
 ```
 
-### Key Differences Per Target
+### 各目标关键差异
 
-| Aspect | Claude | Droid | Codex |
+| 方面 | Claude | Droid | Codex |
 |--------|--------|-------|-------|
-| **Credential delivery** | Environment variables | Config file (~/.factory/settings.json) | Transient `-c` overrides + `CCS_CODEX_API_KEY` |
-| **Spawn args** | `claude <args>` | `droid -m custom:ccs-<profile> <args>` | `codex <args>` or `codex -c ... <args>` |
-| **Config write** | None (uses env) | `upsertCcsModel()` writes to settings | None at runtime; dashboard edits user-owned `~/.codex/config.toml` only |
-| **Binary detection** | `detectClaudeCli()` | `detectDroidCli()` with version check | `detectCodexCli()` plus `--config` capability probe |
+| **凭证传递** | 环境变量 | 配置文件 (~/.factory/settings.json) | 瞬态 `-c` overrides + `CCS_CODEX_API_KEY` |
+| **启动参数** | `claude <args>` | `droid -m custom:ccs-<profile> <args>` | `codex <args>` 或 `codex -c ... <args>` |
+| **配置写入** | 无（使用 env） | `upsertCcsModel()` 写入 settings | 运行时无；dashboard 仅编辑用户拥有的 `~/.codex/config.toml` |
+| **二进制检测** | `detectClaudeCli()` | `detectDroidCli()` 带版本检查 | `detectCodexCli()` 加上 `--config` 能力探测 |
 
-### Target Resolution Priority
+### 目标解析优先级
 
-Resolves which adapter to use via `resolveTargetType()`:
+通过 `resolveTargetType()` 解析使用哪个 adapter：
 
 ```
-1. --target <name> flag (highest priority)
+1. --target <name> 标志（最高优先级）
    ↓
-2. explicit runtime entrypoint (`CCS_INTERNAL_ENTRY_TARGET`):
+2. 明确的运行时入口点（`CCS_INTERNAL_ENTRY_TARGET`）：
    - ccs-droid / ccsd → droid
    - ccs-codex / ccsx → codex
-   - ccsxp → codex (native cliproxy shortcut)
+   - ccsxp → codex（原生的 cliproxy 快捷方式）
    ↓
-3. argv[0] detection (runtime alias pattern / custom alias map):
+3. argv[0] 检测（运行时别名模式 / 自定义别名映射）：
    - ccs-droid → droid
    - ccsd → droid
    - ccs-codex → codex
    - ccsx → codex
    - ccs → default
    ↓
-4. Profile config: profileConfig.target field
+4. Profile 配置：profileConfig.target 字段
    ↓
-5. Fallback: 'claude' (lowest priority)
+5. 回退：'claude'（最低优先级）
 ```
 
-### Registration Pattern
+### 注册模式
 
-At startup, adapters self-register into the runtime registry:
+在启动时，adapters 自行注册到运行时注册表：
 
 ```typescript
-// In ccs.ts or initialization
+// 在 ccs.ts 或初始化中
 registerTarget(new ClaudeAdapter());
 registerTarget(new DroidAdapter());
 registerTarget(new CodexAdapter());
 
-// Later, when executing
+// 稍后执行时
 const targetType = resolveTargetType(args, profileConfig);
 const adapter = getTarget(targetType);
 
@@ -234,32 +234,32 @@ const spawnArgs = adapter.buildArgs(profile, userArgs);
 adapter.exec(spawnArgs, adapter.buildEnv(credentials, profileType));
 ```
 
-### Adding a New Target
+### 添加新目标
 
-To add support for a new CLI (e.g., `newcli`):
+要添加对新 CLI（例如 `newcli`）的支持：
 
-1. Create `src/targets/newcli-adapter.ts` implementing `TargetAdapter`
-2. Implement each required method (detection, credential delivery, spawning)
-3. Create `src/targets/newcli-detector.ts` for binary detection logic
-4. Export from `src/targets/index.ts`
-5. Register in `ccs.ts`: `registerTarget(new NewCliAdapter())`
-6. Update `TargetType` union to include `'newcli'`
+1. 创建实现 `TargetAdapter` 的 `src/targets/newcli-adapter.ts`
+2. 实现每个必需方法（检测、凭证传递、生成）
+3. 创建 `src/targets/newcli-detector.ts` 用于二进制检测逻辑
+4. 从 `src/targets/index.ts` 导出
+5. 在 `ccs.ts` 中注册：`registerTarget(new NewCliAdapter())`
+6. 更新 `TargetType` 联合类型以包含 `'newcli'`
 
 ---
 
-## Monster File Splitting Methodology
+## 大文件拆分方法论
 
-When splitting large files (500+ lines), follow this process:
+拆分大文件（500+ 行）时，遵循此流程：
 
-### Step 1: Analyze Structure
+### 步骤 1：分析结构
 
-Identify logical boundaries:
-- Render sections in React components
-- Handler groups in route files
-- Related utility functions
-- Constants and types
+识别逻辑边界：
+- React 组件中的渲染部分
+- 路由文件中的处理器组
+- 相关工具函数
+- 常量和类型
 
-### Step 2: Extract Types First
+### 步骤 2：先提取类型
 
 ```typescript
 // types.ts
@@ -274,7 +274,7 @@ export interface ModelMappingValues {
 }
 ```
 
-### Step 3: Extract Utilities
+### 步骤 3：提取工具
 
 ```typescript
 // utils.ts
@@ -282,7 +282,7 @@ export function validateEndpoint(url: string): boolean { ... }
 export function formatModelName(name: string): string { ... }
 ```
 
-### Step 4: Extract Hooks
+### 步骤 4：提取 Hooks
 
 ```typescript
 // hooks.ts
@@ -290,14 +290,14 @@ export function useProviderConfig(providerId: string) { ... }
 export function useModelValidation() { ... }
 ```
 
-### Step 5: Extract Subcomponents
+### 步骤 5：提取子组件
 
 ```typescript
 // model-mapping-form.tsx
 export function ModelMappingForm({ values, onChange }: Props) { ... }
 ```
 
-### Step 6: Compose in Index
+### 步骤 6：在 Index 中组合
 
 ```typescript
 // index.tsx
@@ -320,11 +320,11 @@ export type { ProviderEditorProps, ModelMappingValues } from './types';
 
 ---
 
-## TypeScript Standards
+## TypeScript 标准
 
-### Strict Mode Required
+### 严格模式必需
 
-All projects use TypeScript strict mode:
+所有项目使用 TypeScript 严格模式：
 
 ```json
 {
@@ -338,26 +338,26 @@ All projects use TypeScript strict mode:
 }
 ```
 
-### Type Annotations
+### 类型注解
 
 ```typescript
-// CORRECT: Explicit return types for public functions
+// 正确：公共函数的明确返回类型
 export function detectProfile(args: string[]): DetectedProfile { ... }
 
-// CORRECT: Inferred types for internal functions
+// 正确：内部函数的推断类型
 const formatName = (name: string) => name.trim().toLowerCase();
 
-// INCORRECT: any type
-function processData(data: any) { ... }  // Use unknown or proper type
+// 错误：any 类型
+function processData(data: any) { ... }  // 使用 unknown 或适当类型
 ```
 
-### Type Exports
+### 类型导出
 
 ```typescript
-// CORRECT: Use type keyword for type-only exports
+// 正确：使用 type 关键字进行仅类型导出
 export type { Config, Settings } from './config';
 
-// CORRECT: Group type exports in barrel
+// 正确：在 barrel 中分组类型导出
 export type {
   PlatformInfo,
   BinaryInfo,
@@ -367,56 +367,56 @@ export type {
 
 ---
 
-## ESLint Rules (Enforced)
+## ESLint 规则（强制执行）
 
-| Rule | Level | Notes |
+| 规则 | 级别 | 备注 |
 |------|-------|-------|
-| `@typescript-eslint/no-unused-vars` | error | Ignore `_` prefix |
-| `@typescript-eslint/no-explicit-any` | error | Use proper types |
-| `@typescript-eslint/no-non-null-assertion` | error | No `!` assertions |
-| `prefer-const` | error | Immutable by default |
-| `no-var` | error | Use const/let |
-| `eqeqeq` | error | Strict equality |
-| `react-hooks/*` | recommended | (UI only) |
+| `@typescript-eslint/no-unused-vars` | error | 忽略 `_` 前缀 |
+| `@typescript-eslint/no-explicit-any` | error | 使用适当类型 |
+| `@typescript-eslint/no-non-null-assertion` | error | 不使用 `!` 断言 |
+| `prefer-const` | error | 默认不可变 |
+| `no-var` | error | 使用 const/let |
+| `eqeqeq` | error | 严格相等 |
+| `react-hooks/*` | recommended | （仅 UI） |
 
 ---
 
-## Terminal Output Standards
+## 终端输出标准
 
-### CCS Logging Standards
+### CCS 日志标准
 
-- Use the shared logger from `src/services/logging/` for CCS-owned runtime diagnostics, request tracing, and structured events.
-- Keep `utils/ui` and deliberate `console.log`/`console.error` output for user-facing CLI UX only.
-- Redact secrets before persistence; never write raw tokens, cookies, API keys, or password hashes into CCS-owned logs.
-- Persist CCS-owned logs only under `getCcsDir()/logs`; do not invent per-feature log roots.
-- When adding dashboard polling or diagnostics routes, prevent them from recursively logging the log viewer itself.
+- 使用 `src/services/logging/` 中的共享 logger 进行 CCS 自有运行时诊断、请求跟踪和结构化事件
+- 保持 `utils/ui` 和刻意的 `console.log`/`console.error` 输出仅用于面向用户的 CLI UX
+- 在持久化之前清除 secrets；永远不要将原始 tokens、cookies、API keys 或密码哈希写入 CCS 自有日志
+- 仅在 `getCcsDir()/logs` 下持久化 CCS 自有日志；不要为每个功能日志创建根目录
+- 添加 dashboard 轮询或诊断路由时，防止它们递归记录日志查看器本身
 
-### ASCII Only
+### 仅 ASCII
 
 ```typescript
-// CORRECT
+// 正确
 console.log('[OK] Operation successful');
 console.log('[!] Warning message');
 console.log('[X] Error occurred');
 console.log('[i] Information');
 
-// INCORRECT - NO EMOJIS
+// 错误 - 不要使用 EMOJIS
 console.log('Operation successful');  // NO
 console.log('Warning message');       // NO
 ```
 
-### Color Handling
+### 颜色处理
 
 ```typescript
 import { colors } from '../utils/ui';
 
-// Colors are TTY-aware and respect NO_COLOR
+// 颜色支持 TTY 检测并尊重 NO_COLOR
 console.log(colors.green('[OK]') + ' Operation successful');
 ```
 
-### Box Borders
+### 边框
 
-Use ASCII box drawing for error displays:
+错误显示使用 ASCII 框绘制：
 
 ```
 +=====================================+
@@ -426,137 +426,137 @@ Use ASCII box drawing for error displays:
 +=====================================+
 ```
 
-### Cross-Platform Adapter Spawning
+### 跨平台 Adapter 生成
 
-When implementing target adapters, handle platform differences for binary spawning:
+实现 target adapters 时，处理二进制生成的平台差异：
 
 ```typescript
-// Window shell detection (.cmd, .bat, .ps1 require shell)
+// Windows shell 检测（.cmd、.bat、.ps1 需要 shell）
 const needsShell = isWindows && /\.(cmd|bat|ps1)$/i.test(binaryPath);
 
 if (needsShell) {
-  // Escape arguments and use shell: true
+  // 转义参数并使用 shell: true
   const cmdString = [binaryPath, ...args].map(escapeShellArg).join(' ');
   spawn(cmdString, { shell: true, stdio: 'inherit' });
 } else {
-  // Direct spawn (Unix-like, unshelled Windows executables)
+  // 直接生成（Unix 类、不带 shell 的 Windows 可执行文件）
   spawn(binaryPath, args, { stdio: 'inherit' });
 }
 ```
 
-This pattern is used in both `ClaudeAdapter` and `DroidAdapter` to ensure cross-platform consistency.
+此模式在 `ClaudeAdapter` 和 `DroidAdapter` 中使用以确保跨平台一致性。
 
-For all Claude child-process launches (delegation, adapters, proxies, helper spawners), sanitize env before spawn:
+对于所有 Claude 子进程启动（delegation、adapters、proxies、helper 生成器），在生成前清理 env：
 
 ```typescript
-const cleanEnv = stripClaudeCodeEnv(mergedEnv); // case-insensitive remove of CLAUDECODE
+const cleanEnv = stripClaudeCodeEnv(mergedEnv); // 不区分大小写地移除 CLAUDECODE
 spawn(binaryPath, args, { env: cleanEnv, stdio: 'inherit' });
 ```
 
-This prevents Claude Code nested-session guard failures when CCS runs inside parent Claude sessions.
+这可以防止 CCS 在父 Claude 会话中运行时出现 Claude Code 嵌套会话保护失败。
 
 ---
 
-## React Component Standards (UI)
+## React 组件标准（UI）
 
-### Component Structure
+### 组件结构
 
 ```typescript
 // component-name.tsx
 
-// 1. Imports (grouped: react, external, internal, relative)
+// 1. 导入（分组：react、外部、内部、相对）
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useProfiles } from '@/hooks';
 import { formatName } from './utils';
 import type { ComponentProps } from './types';
 
-// 2. Types (if not in separate file)
+// 2. 类型（如果不在单独文件中）
 interface Props {
   id: string;
   onSave: () => void;
 }
 
-// 3. Component
+// 3. 组件
 export function ComponentName({ id, onSave }: Props) {
-  // Hooks first
+  // Hooks 优先
   const profiles = useProfiles();
   const [state, setState] = useState(null);
 
-  // Handlers
+  // 处理器
   const handleClick = () => { ... };
 
-  // Render
+  // 渲染
   return ( ... );
 }
 ```
 
-### Naming Conventions
+### 命名约定
 
-| Item | Convention | Example |
+| 项目 | 约定 | 示例 |
 |------|------------|---------|
-| Component files | kebab-case.tsx | `provider-editor.tsx` |
-| Component exports | PascalCase | `ProviderEditor` |
-| Hook files | use-*.ts | `use-profiles.ts` |
-| Hook exports | useCamelCase | `useProfiles` |
-| Utility files | kebab-case.ts | `path-utils.ts` |
-| Utility exports | camelCase | `formatPath` |
+| 组件文件 | kebab-case.tsx | `provider-editor.tsx` |
+| 组件导出 | PascalCase | `ProviderEditor` |
+| Hook 文件 | use-*.ts | `use-profiles.ts` |
+| Hook 导出 | useCamelCase | `useProfiles` |
+| 工具文件 | kebab-case.ts | `path-utils.ts` |
+| 工具导出 | camelCase | `formatPath` |
 
 ---
 
-## Input State Persistence Patterns
+## 输入状态持久化模式
 
-When building forms and editors that allow users to make changes, follow these patterns to prevent data loss.
+构建允许用户进行更改的表单和编辑器时，遵循这些模式以防止数据丢失。
 
-### Pattern 1: Key-Based Remounting
+### 模式 1：基于 Key 的重新挂载
 
-**Use when**: Component has complex local state that should reset on prop changes.
+**使用时机**：组件有应在 prop 更改时重置的复杂本地状态。
 
 ```typescript
-// Parent component
+// 父组件
 <ProfileEditor
-  key={profileId}  // Forces remount when profile changes
+  key={profileId}  // 当 profile 更改时强制重新挂载
   profileId={profileId}
   onSave={handleSave}
 />
 ```
 
-**Why**: Without `key`, React reuses the component instance. Local `useState` values persist even when props change, causing stale data bugs.
+**原因**：没有 `key`，React 重用组件实例。本地 `useState` 值即使在 prop 更改时也会保留，导致过期数据 bug。
 
-### Pattern 2: Unsaved Changes Confirmation
+### 模式 2：未保存更改确认
 
-**Use when**: User might navigate away while editing.
+**使用时机**：用户可能在编辑时导航离开。
 
 ```typescript
-// Parent tracks dirty state
+// 父组件跟踪 dirty 状态
 const [editorHasChanges, setEditorHasChanges] = useState(false);
 const [pendingSwitch, setPendingSwitch] = useState<string | null>(null);
 
-// Child notifies parent of dirty state
+// 子组件通知父组件 dirty 状态
 useEffect(() => {
   onHasChangesUpdate?.(computedHasChanges);
 }, [computedHasChanges, onHasChangesUpdate]);
 
-// Intercept navigation
+// 拦截导航
 const handleSelect = (id: string) => {
   if (editorHasChanges && currentId !== id) {
-    setPendingSwitch(id);  // Show confirmation dialog
+    setPendingSwitch(id);  // 显示确认对话框
   } else {
     setCurrentId(id);
   }
 };
 ```
 
-**Flow**:
-1. Child computes `hasChanges` from local state vs saved data
-2. Child notifies parent via callback
-3. Parent intercepts navigation when dirty
-4. Show confirmation dialog: "Discard & Switch" or "Cancel"
-5. On confirm: reset dirty state, then switch
+**流程**：
+1. 子组件从本地状态与已保存数据计算 `hasChanges`
+2. 子组件通过回调通知父组件
+3. 当 dirty 时父组件拦截导航
+4. 显示确认对话框："Discard & Switch" 或 "Cancel"
+5. 确认后：重置 dirty 状态，然后切换
 
-### Pattern 3: Auto-Save with Visual Feedback
+### 模式 3：带视觉反馈的自动保存
 
-**Use when**: Simple inputs that should save immediately.
+**使用时机**：应立即保存的简单输入。
 
 ```typescript
 const [saved, setSaved] = useState(false);
@@ -581,157 +581,157 @@ return (
 );
 ```
 
-**When to use which**:
-| Scenario | Pattern |
+**何时使用哪种**：
+| 场景 | 模式 |
 |----------|---------|
-| Complex multi-field editor | Pattern 2 (confirmation dialog) |
-| Simple single input | Pattern 3 (auto-save + feedback) |
-| List item selection | Pattern 1 (key-based remount) + Pattern 2 |
+| 复杂多字段编辑器 | 模式 2（确认对话框） |
+| 简单单输入 | 模式 3（自动保存 + 反馈） |
+| 列表项选择 | 模式 1（基于 key 重新挂载）+ 模式 2 |
 
 ---
 
-## Quality Gates
+## 质量门禁
 
-### Pre-Commit Sequence
+### 预提交序列
 
 ```bash
-# Main project
+# 主项目
 bun run format
 bun run lint:fix
 bun run validate
 bun run validate:ci-parity
 
-# UI project (if changed)
+# UI 项目（如有更改）
 cd ui
 bun run format
 bun run lint:fix
 bun run validate
 ```
 
-### Validate Runs
+### Validate 运行
 
-| Project | Command | Checks |
+| 项目 | 命令 | 检查 |
 |---------|---------|--------|
 | Main | `bun run validate` | typecheck + lint + format:check + test:fast |
 | UI | `bun run validate` | typecheck + lint + format:check |
 
 ---
 
-## Conventional Commits
+## 常规提交
 
-All commits must follow conventional commit format:
+所有提交必须遵循常规提交格式：
 
 ```
 <type>(<scope>): <description>
 ```
 
-### Types
+### 类型
 
-| Type | When to Use | Version Bump |
+| 类型 | 使用时机 | 版本升级 |
 |------|-------------|--------------|
-| `feat` | New feature | MINOR |
-| `fix` | Bug fix | PATCH |
-| `perf` | Performance | PATCH |
-| `docs` | Documentation | None |
-| `style` | Formatting | None |
-| `refactor` | Code restructure | None |
-| `test` | Tests | None |
-| `chore` | Maintenance | None |
+| `feat` | 新功能 | MINOR |
+| `fix` | Bug 修复 | PATCH |
+| `perf` | 性能 | PATCH |
+| `docs` | 文档 | None |
+| `style` | 格式化 | None |
+| `refactor` | 代码重构 | None |
+| `test` | 测试 | None |
+| `chore` | 维护 | None |
 
-### Examples
+### 示例
 
 ```bash
-# Correct
+# 正确
 git commit -m "feat(cliproxy): add OAuth token refresh"
 git commit -m "fix(doctor): handle missing config gracefully"
 git commit -m "refactor(ui): split provider-editor into modules"
 
-# Incorrect - REJECTED
+# 错误 - 拒绝
 git commit -m "added new feature"
 git commit -m "Fixed bug"
 ```
 
 ---
 
-## Anti-Patterns to Avoid
+## 应避免的反模式
 
-### 1. God Files
+### 1. 上帝文件
 
 ```typescript
-// BAD: One file doing everything
-// src/utils.ts (2000 lines with mixed concerns)
+// 不好：一个文件做所有事情
+// src/utils.ts (2000 行混合关注点)
 
-// GOOD: Split by domain
+// 好：按领域拆分
 // src/utils/ui/colors.ts
 // src/utils/ui/boxes.ts
 // src/utils/shell-executor.ts
 // src/utils/config-manager.ts
 ```
 
-### 2. Barrel Import Bypass
+### 2. Barrel 导入绕过
 
 ```typescript
-// BAD: Direct import bypassing barrel
+// 不好：直接导入绕过 barrel
 import { detectPlatform } from '../cliproxy/platform-detector';
 
-// GOOD: Import from domain barrel
+// 好：从领域 barrel 导入
 import { detectPlatform } from '../cliproxy';
 ```
 
-### 3. Inline Everything
+### 3. 内联一切
 
 ```typescript
-// BAD: Huge inline functions in components
+// 不好：组件中巨大的内联函数
 function Component() {
   const handleComplexOperation = () => {
-    // 100 lines of logic...
+    // 100 行逻辑...
   };
 }
 
-// GOOD: Extract to hooks or utilities
+// 好：提取到 hooks 或工具
 function Component() {
   const { handleComplexOperation } = useComplexOperation();
 }
 ```
 
-### 4. Type Duplication
+### 4. 类型重复
 
 ```typescript
-// BAD: Same types defined in multiple files
+// 不好：同一类型在多个文件中定义
 // file1.ts
 interface Config { ... }
 // file2.ts
 interface Config { ... }
 
-// GOOD: Single source of truth
+// 好：单一真实来源
 // types/config.ts
 export interface Config { ... }
 ```
 
-### 5. Config Priority Pattern
+### 5. 配置优先级模式
 
-When resolving configuration from multiple sources, follow this priority order:
+从多个来源解析配置时，遵循此优先级顺序：
 
 ```typescript
-// proxy-config-resolver.ts pattern
-// Priority: CLI flags > Environment variables > config.yaml > defaults
+// proxy-config-resolver.ts 模式
+// 优先级：CLI 标志 > 环境变量 > config.yaml > 默认值
 
 const resolved = {
-  ...DEFAULT_CONFIG,                    // 4. Defaults (lowest)
+  ...DEFAULT_CONFIG,                    // 4. 默认值（最低）
   ...yamlConfig,                        // 3. config.yaml
-  ...envConfig,                         // 2. Environment variables
-  ...cliFlags,                          // 1. CLI flags (highest)
+  ...envConfig,                         // 2. 环境变量
+  ...cliFlags,                          // 1. CLI 标志（最高）
 };
 ```
 
-This pattern is used in:
-- `src/cliproxy/proxy-config-resolver.ts` - Remote proxy config
-- `src/config/unified-config-loader.ts` - Main config loading
+此模式用于：
+- `src/cliproxy/proxy-config-resolver.ts` - 远程代理配置
+- `src/config/unified-config-loader.ts` - 主配置加载
 
 ---
 
-## Related Documentation
+## 相关文档
 
-- [Codebase Summary](./codebase-summary.md) - Full directory structure
-- [System Architecture](./system-architecture/index.md) - Architecture diagrams
-- [CLAUDE.md](../CLAUDE.md) - AI-facing development guidance
+- [Codebase Summary](./codebase-summary.md) - 完整目录结构
+- [System Architecture](./system-architecture/index.md) - 架构图
+- [CLAUDE.md](../CLAUDE.md) - AI 面向的开发指导

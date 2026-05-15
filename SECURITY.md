@@ -1,36 +1,36 @@
-# Security Policy
+# 安全政策
 
-## Supported Versions
+## 支持的版本
 
-Security fixes are applied to the latest supported release line and the active development branch.
+安全修复应用于最新支持的发布线和活跃开发分支。
 
-| Branch / channel | Status |
+| Branch / channel | 状态 |
 | --- | --- |
-| `main` / `@latest` | Supported |
-| `dev` / `@dev` | Supported |
-| Older releases | Best effort only |
+| `main` / `@latest` | 支持中 |
+| `dev` / `@dev` | 支持中 |
+| 旧版本 | 尽力而为 |
 
-## Report A Vulnerability
+## 报告漏洞
 
-Do not open public GitHub issues for suspected security vulnerabilities.
+请勿为疑似安全漏洞开启公开的 GitHub issue。
 
-Use GitHub Private Vulnerability Reporting instead:
+请使用 GitHub 私人漏洞报告：
 
 - https://github.com/kaitranntt/ccs/security/advisories/new
 
-Include:
+请包含：
 
-- A short description of the issue
-- Affected version, branch, or install method
-- Reproduction steps or proof of concept
-- Impact assessment if you have one
+- 问题的简短描述
+- 受影响的版本、分支或安装方式
+- 复现步骤或概念验证
+- 如果有的话，提供影响评估
 
-Please avoid posting tokens, cookies, private configs, or exploit details in public issues, discussions, or screenshots.
+请避免在公开 issue、讨论区或截图 中发布 tokens、cookies、私人配置或漏洞利用细节。
 
-## What To Expect
+## 预期处理时间
 
-- Initial acknowledgement target: within 3 business days
-- Triage and severity assessment after reproduction
-- A coordinated fix and release when the report is confirmed
+- 初步确认目标：3 个工作日内
+- 复现后进行分类和严重性评估
+- 确认报告后协调修复和发布
 
-If you already opened a public issue by mistake, edit it down to a minimal note and ask for a private reporting path instead of posting more detail.
+如果您不小心开启了公开 issue，请将其精简为简短说明并请求私人报告路径，而不是发布更多详细信息。

@@ -1,40 +1,40 @@
-# Image Analysis Configuration Guide
+# 图片分析配置指南
 
-CCS provides first-class image and PDF analysis for third-party Claude launches that do not have reliable native vision support.
+CCS 为没有可靠原生视觉支持的第三方 Claude 启动提供一级图片和 PDF 分析。
 
-## How Image Analysis Works
+## 图片分析如何工作
 
-Native Claude accounts keep Anthropic's own vision flow.
+原生 Claude 账户保持 Anthropic 自己的视觉流程。
 
-Third-party profiles now use a CCS-managed local MCP tool named `ImageAnalysis` when the runtime is available. CCS also appends a short steering hint so Claude prefers that tool over `Read` for local image and PDF files.
+第三方 profiles 现在在运行时可用时使用名为 `ImageAnalysis` 的 CCS 管理本地 MCP 工具。CCS 还附加了一个简短的引导提示，让 Claude 优选该工具而不是 `Read` 来处理本地图片和 PDF 文件。
 
-Healthy Claude-target launches suppress the legacy CCS `Read` hook so MCP stays authoritative. If the managed runtime cannot be provisioned, CCS keeps the old `Read` hook available only as a compatibility fallback when that path is still viable. If runtime/auth/proxy readiness is degraded beyond that, CCS falls back to native `Read` instead of failing the whole launch.
+健康的 Claude 目标启动会抑制旧版 CCS `Read` hook，使 MCP 保持权威。如果无法配置托管运行时，CCS 保留旧的 `Read` hook 仅作为兼容性回退（当该路径仍然可行时）。如果运行时/认证/代理就绪状态退化到该点之外，CCS 会回退到原生 `Read` 而不是使整个启动失败。
 
-## Routing Model
+## 路由模型
 
-ImageAnalysis requests go straight to the CCS-managed provider route:
+ImageAnalysis 请求直接发送到 CCS 管理的 provider 路由：
 
 ```text
 Claude -> ccs-image-analysis MCP -> CCS provider route -> /api/provider/<backend>/v1/messages
 ```
 
-Important:
-- CCS does not relay image analysis through Claude Code, another CLI, or a second model wrapper.
-- For bridge-backed settings profiles, CCS resolves the backend and provider path before launch.
-- CCS avoids leaking a profile's ordinary third-party `ANTHROPIC_BASE_URL` or token into image analysis unless that profile is explicitly using a CLIProxy bridge.
+重要：
+- CCS 不通过 Claude Code、另一个 CLI 或第二个模型包装器中继图片分析。
+- 对于桥接支持的 settings profiles，CCS 在启动前解析后端和 provider 路径。
+- CCS 避免将 profile 普通的第三方 `ANTHROPIC_BASE_URL` 或 token 泄露到图片分析，除非该 profile 明确使用 CLIProxy 桥接。
 
-## Profile Behavior
+## Profile 行为
 
-| Profile Type | Image Method |
+| Profile 类型 | 图片方法 |
 |--------------|--------------|
-| Claude `default` / `account` | Native Claude vision / native `Read` |
-| Third-party settings / CLIProxy / Copilot | CCS local `ImageAnalysis` MCP tool when ready |
-| Third-party when MCP provisioning fails but provider-backed analysis is still viable | Legacy CCS `Read` hook fallback |
-| Third-party when runtime/auth/proxy is unavailable | Native `Read` fallback |
+| Claude `default` / `account` | 原生 Claude vision / 原生 `Read` |
+| 第三方 settings / CLIProxy / Copilot | 就绪时使用 CCS 本地 `ImageAnalysis` MCP 工具 |
+| MCP 配置失败但 provider 支持的分析仍然可行时的第三方 | 旧版 CCS `Read` hook 回退 |
+| 运行时/认证/代理不可用时的第三方 | 原生 `Read` 回退 |
 
-## Configuration
+## 配置
 
-Configure via dashboard (`Settings -> Image`) or `~/.ccs/config.yaml`:
+通过 dashboard（`Settings -> Image`）或 `~/.ccs/config.yaml` 配置：
 
 ```yaml
 image_analysis:
@@ -47,7 +47,7 @@ image_analysis:
     ghcp: claude-haiku-4.5
 ```
 
-Useful commands:
+有用命令：
 
 ```bash
 ccs config image-analysis
@@ -58,61 +58,61 @@ ccs config image-analysis --set-profile-backend glm agy
 ccs config image-analysis --clear-profile-backend glm
 ```
 
-## Prompt Templates
+## 提示模板
 
-CCS installs editable prompt templates at:
+CCS 在以下位置安装可编辑的提示模板：
 
 ```text
 ~/.ccs/prompts/image-analysis/
 ```
 
-Templates:
+模板：
 - `default.txt`
 - `screenshot.txt`
 - `document.txt`
 
-CCS automatically selects `screenshot` for screenshot-like filenames, `document` for PDFs, and `default` otherwise.
+CCS 自动为类似截图的文件名选择 `screenshot`，为 PDF 选择 `document`，其他情况选择 `default`。
 
-## Runtime Environment
+## 运行时环境
 
-Key runtime env vars:
+关键运行时 env 变量：
 
-| Variable | Purpose |
-|----------|---------|
-| `CCS_IMAGE_ANALYSIS_SKIP` | Disable image analysis for the current launch |
-| `CCS_IMAGE_ANALYSIS_SKIP_HOOK` | Suppress only the legacy CCS `Read` hook while keeping MCP ImageAnalysis available |
-| `CCS_IMAGE_ANALYSIS_RUNTIME_BASE_URL` | Explicit CCS runtime base URL |
-| `CCS_IMAGE_ANALYSIS_RUNTIME_PATH` | Provider route such as `/api/provider/agy` |
-| `CCS_IMAGE_ANALYSIS_RUNTIME_API_KEY` | Explicit CCS runtime auth key |
-| `CCS_IMAGE_ANALYSIS_MODEL` | Force a single image-analysis model |
-| `CCS_DEBUG` | Verbose runtime logging |
+| 变量 | 用途 |
+|----------|-------------|
+| `CCS_IMAGE_ANALYSIS_SKIP` | 禁用当前启动的图片分析 |
+| `CCS_IMAGE_ANALYSIS_SKIP_HOOK` | 仅抑制旧版 CCS `Read` hook，同时保持 MCP ImageAnalysis 可用 |
+| `CCS_IMAGE_ANALYSIS_RUNTIME_BASE_URL` | 明确的 CCS 运行时 base URL |
+| `CCS_IMAGE_ANALYSIS_RUNTIME_PATH` | Provider 路由，如 `/api/provider/agy` |
+| `CCS_IMAGE_ANALYSIS_RUNTIME_API_KEY` | 明确的 CCS 运行时认证密钥 |
+| `CCS_IMAGE_ANALYSIS_MODEL` | 强制使用单一图片分析模型 |
+| `CCS_DEBUG` | 详细运行时日志 |
 
-## Self-Heal
+## 自愈
 
-CCS now auto-heals stale managed image-analysis state in three places:
+CCS 现在在三个地方自动修复过期的托管图片分析状态：
 
-- Healthy Claude launches remove stale CCS-managed image `Read` hooks from the active profile settings before launch.
-- `Settings -> Image` save/provisioning repairs managed MCP runtime files, syncs managed MCP entries into isolated Claude config dirs, and cleans stale CCS-managed image hooks from `~/.ccs/*.settings.json`.
-- `ccs doctor --fix` repairs invalid image-analysis config, removes stale CCS-managed image hooks, and resyncs managed `ccs-image-analysis` MCP entries into isolated configs.
+- 健康的 Claude 启动在启动前从活动 profile 设置中删除过期的 CCS 管理的图片 `Read` hooks。
+- `Settings -> Image` 保存/配置修复托管 MCP 运行时文件，将托管 MCP 条目同步到隔离的 Claude 配置目录，并从 `~/.ccs/*.settings.json` 清理过期的 CCS 管理的图片 hooks。
+- `ccs doctor --fix` 修复无效的图片分析配置，删除过期的 CCS 管理的图片 hooks，并将托管的 `ccs-image-analysis` MCP 条目重新同步到隔离配置。
 
-## Troubleshooting
+## 故障排除
 
-### Claude still uses `Read`
+### Claude 仍使用 `Read`
 
-- Confirm `ccs config image-analysis` shows `enabled: true`
-- Check the active profile resolves to a configured backend
-- Run `ccs doctor --fix` to repair stale managed hooks or missing managed MCP sync
-- Run with `CCS_DEBUG=1` to see runtime preparation details
+- 确认 `ccs config image-analysis` 显示 `enabled: true`
+- 检查活动 profile 是否解析为配置的后端
+- 运行 `ccs doctor --fix` 修复过期的托管 hooks 或缺失的托管 MCP 同步
+- 使用 `CCS_DEBUG=1` 运行以查看运行时准备详情
 
-### ImageAnalysis is not exposed
+### ImageAnalysis 未暴露
 
-- Verify CLIProxy auth for the resolved backend
-- Verify the local or remote CLIProxy target is reachable
-- Check `~/.claude.json` and inherited account configs for `ccs-image-analysis`
+- 验证已解析后端的 CLIProxy 认证
+- 验证本地或远程 CLIProxy 目标可访问
+- 检查 `~/.claude.json` 和继承的账户配置中是否有 `ccs-image-analysis`
 
-### I need to prove requests are going directly to the provider route
+### 我需要证明请求直接发送到 provider 路由
 
-Run with `CCS_DEBUG=1` and inspect the resolved runtime path. The request target should be provider-scoped, for example:
+使用 `CCS_DEBUG=1` 运行并检查解析的运行时路径。请求目标应该是 provider 范围的，例如：
 
 ```text
 /api/provider/agy/v1/messages

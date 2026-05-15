@@ -1,31 +1,31 @@
-# npm Package Tests
+# npm 包测试
 
-Tests for npm installation method of CCS.
+CCS npm 安装方式的测试。
 
-## Files
+## 文件
 
-- `postinstall.test.js` - Postinstall behavior and configuration creation
-- `cli.test.js` - CLI argument parsing and profile handling
-- `cross-platform.test.js` - Cross-platform compatibility tests
+- `postinstall.test.js` - Postinstall 行为和配置创建
+- `cli.test.js` - CLI 参数解析和 profile 处理
+- `cross-platform.test.js` - 跨平台兼容性测试
 
-## Running
+## 运行
 
 ```bash
-# Run only npm tests
+# 仅运行 npm 测试
 npm run test:npm
 
-# Run with verbose output
+# 带详细输出运行
 npm run test:npm -- --reporter spec
 
-# Run specific test file
+# 运行特定测试文件
 npx mocha tests/npm/postinstall.test.js
 ```
 
-## Test Coverage
+## 测试覆盖
 
-These tests cover:
-- Postinstall script behavior (Section 10 from original edge-cases.sh)
-- CLI argument parsing for npm package
-- Cross-platform path handling
-- Configuration file creation and management
-- Profile system functionality
+这些测试涵盖：
+- Postinstall 脚本行为（来自原始 edge-cases.sh 的第 10 节）
+- npm 包的 CLI 参数解析
+- 跨平台路径处理
+- 配置文件创建和管理
+- Profile 系统功能

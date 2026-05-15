@@ -1,65 +1,61 @@
-# OpenAI-Compatible Provider Routing
+# OpenAI 兼容 Provider 路由
 
-CCS can route Claude Code traffic through a local Anthropic-compatible proxy when
-your API profile points at an OpenAI-compatible chat completions endpoint.
+当您的 API profile 指向 OpenAI 兼容的聊天补全端点时，CCS 可以通过本地 Anthropic 兼容代理路由 Claude Code 流量。
 
-This is useful for providers such as:
+这适用于以下 providers：
 
 - Hugging Face Inference Providers
 - OpenRouter
 - Ollama
-- llama.cpp servers
-- OpenAI-compatible self-hosted gateways
+- llama.cpp 服务器
+- OpenAI 兼容的自托管网关
 
-## Related Project: claude-code-router
+## 相关项目：claude-code-router
 
-[claude-code-router](https://github.com/musistudio/claude-code-router) is the
-main external reference that informed this CCS work. Their Anthropic/OpenAI
-transformer design helped shape the routing approach here.
+[claude-code-router](https://github.com/musistudio/claude-code-router) 是告知此 CCS 工作主要外部参考。他们的 Anthropic/OpenAI 转换器设计帮助塑造了这里的路由方法。
 
-When to use CCR:
+何时使用 CCR：
 
-- you want a standalone router without CCS profile integration
-- you do not need CCS account/runtime management around the request flow
+- 您需要一个不依赖 CCS profile 集成的独立路由器
+- 您不需要 CCS 在请求流周围进行账户/运行时管理
 
-When to use CCS:
+何时使用 CCS：
 
-- you already use CCS API profiles or runtime bridges
-- you want the proxy flow available through `ccs <profile>` and `ccs proxy ...`
-- you want the routing behavior documented and tested inside the CCS workflow
+- 您已经使用 CCS API profiles 或运行时桥接
+- 您希望通过 `ccs <profile>` 和 `ccs proxy ...` 提供代理流
+- 您希望路由行为在 CCS 工作流中记录和测试
 
-## What CCS Does
+## CCS 做什么
 
-When you launch a compatible settings profile with the Claude target, CCS now:
+当您使用 Claude 目标启动兼容的设置 profile 时，CCS 现在：
 
-1. Starts a local proxy on `127.0.0.1` using the resolved local port for that profile
-2. Accepts Anthropic `/v1/messages` traffic from Claude Code
-3. Translates requests into OpenAI chat-completions format
-4. Forwards them to your configured upstream provider
-5. Translates streaming responses back into Anthropic SSE
+1. 使用该 profile 的解析本地端口在 `127.0.0.1` 上启动本地代理
+2. 接受来自 Claude Code 的 Anthropic `/v1/messages` 流量
+3. 将请求转换为 OpenAI 聊天补全格式
+4. 转发到您配置的上游 provider
+5. 将流式响应转回 Anthropic SSE
 
-You do not need to rewrite your profile by hand each time.
+您不需要每次手动重写您的 profile。
 
-## Quick Start
+## 快速开始
 
-Create or reuse an API profile that points at an OpenAI-compatible endpoint:
+创建或重用指向 OpenAI 兼容端点的 API profile：
 
 ```bash
 ccs api create --preset hf
 ```
 
-Then you can use the profile directly:
+然后您可以直接使用该 profile：
 
 ```bash
 ccs hf
 ```
 
-CCS detects that the profile is OpenAI-compatible and auto-routes Claude Code
-through the local proxy.
+CCS 检测到 profile 是 OpenAI 兼容的，并自动通过本地代理路由 Claude Code。
 
-## Manual Proxy Lifecycle
+## 手动代理生命周期
 
-If you want to manage the proxy explicitly:
+如果您想显式管理代理：
 
 ```bash
 ccs proxy start hf
@@ -68,7 +64,7 @@ ccs proxy status
 ccs proxy stop
 ```
 
-Useful variants:
+有用变体：
 
 ```bash
 ccs proxy start hf --host 127.0.0.1
@@ -79,41 +75,35 @@ ccs proxy status hf
 ccs proxy stop hf
 ```
 
-Port selection precedence is:
+端口选择优先级是：
 
-1. CLI `--port` for an exact one-off pin
-2. `proxy.profile_ports[profile]` for an exact per-profile pin
-3. `proxy.port` for a shared preferred starting port
-4. adaptive per-profile fallback when nothing is pinned
+1. CLI `--port` 用于精确的一次性固定
+2. `proxy.profile_ports[profile]` 用于精确的 per-profile 固定
+3. `proxy.port` 用于共享首选起始端口
+4. 当没有固定时，自适应 per-profile 回退
 
-Legacy shared `proxy.port: 3456` values are treated as unset so older configs
-move onto the adaptive path instead of staying on the hot legacy default. If
-you need an exact `3456` binding now, pin it via `--port` or `proxy.profile_ports`.
+旧版共享 `proxy.port: 3456` 值被视为未设置，因此较旧的配置进入自适应路径而不是停留在热门的旧默认值。如果您现在需要精确的 `3456` 绑定，通过 `--port` 或 `proxy.profile_ports` 固定它。
 
-`ccs proxy activate` now prints the full local runtime contract:
+`ccs proxy activate` 现在打印完整的本地运行时契约：
 
 - `ANTHROPIC_BASE_URL`
 - `ANTHROPIC_AUTH_TOKEN`
-- `ANTHROPIC_MODEL` plus tier defaults when present
+- `ANTHROPIC_MODEL` 加上存在时的层级默认值
 - `DISABLE_TELEMETRY`
 - `DISABLE_COST_WARNINGS`
 - `API_TIMEOUT_MS`
 - `NO_PROXY`
 
-## Multiple Active Proxy Profiles
+## 多个活动代理 Profiles
 
-CCS now stores OpenAI-compatible proxy state per profile instead of treating the
-runtime as a singleton.
+CCS 现在按 profile 存储 OpenAI 兼容代理状态，而不是将运行时视为单例。
 
-- Different compatible profiles can run at the same time on separate local ports
-- `ccs proxy activate` without a profile stays convenient when only one proxy is
-  running
-- When multiple proxies are running, pass the profile explicitly to
-  `activate`, `status`, or `stop`
-- `status` and `activate` always reflect the actual running port instead of an
-  assumed default
+- 不同的兼容 profiles 可以同时在独立本地端口上运行
+- 当只有一个代理运行时，不带 profile 的 `ccs proxy activate` 仍然方便
+- 当多个代理运行时，显式传递 profile 到 `activate`、`status` 或 `stop`
+- `status` 和 `activate` 总是反映实际运行端口而不是假定的默认值
 
-If you want to pin or guide ports explicitly, configure them in `~/.ccs/config.yaml`:
+如果您想显式固定或引导端口，请在 `~/.ccs/config.yaml` 中配置它们：
 
 ```yaml
 proxy:
@@ -123,39 +113,34 @@ proxy:
     openai: 3461
 ```
 
-## Request-Time Routing
+## 请求时路由
 
-The proxy is no longer limited to the startup profile's default model.
+代理不再局限于启动 profile 的默认模型。
 
-Supported request-time selectors:
+支持的请求时选择器：
 
 - `profile:model`
-  Example: `deepseek:deepseek-reasoner`
+  示例：`deepseek:deepseek-reasoner`
 - `profile`
-  Example: `openrouter`
-- plain model ids
-  Example: `deepseek-chat`
+  示例：`openrouter`
+- 纯模型 id
+  示例：`deepseek-chat`
 
-Plain model ids use exact string equality against the configured profile model
-slots (`model`, `opusModel`, `sonnetModel`, `haikuModel`). CCS does not apply
-fuzzy matching or prefix matching here. If no exact match is found, the request
-stays on the active profile with the requested model id unchanged.
+纯模型 id 对配置的 profile 模型槽（`model`、`opusModel`、`sonnetModel`、`haikuModel`）使用精确字符串相等性。CCS 不在这里应用模糊匹配或前缀匹配。如果没有找到精确匹配，请求保持在活动 profile 上，请求的模型 id 不变。
 
-Routing behavior:
+路由行为：
 
-1. `profile:model` wins immediately.
-2. Scenario routing may override the active profile when configured.
-3. Plain model ids are matched against the configured OpenAI-compatible
-   profiles before falling back to the active profile.
+1. `profile:model` 立即获胜。
+2. 场景路由可能在配置时覆盖活动 profile。
+3. 纯模型 id 在回退到活动 profile 之前与配置的 OpenAI 兼容 profiles 匹配。
 
-This means a Claude session launched through one compatible profile can still
-request another compatible profile/model when the proxy can resolve it safely.
+这意味着通过一个兼容 profile 启动的 Claude 会话仍然可以请求另一个兼容 profile/模型（当代理可以安全解析时）。
 
-## Scenario Routing
+## 场景路由
 
-Scenario routing is now supported through `proxy.routing` in your CCS config.
+现在通过 `~/.ccs/config.yaml` 中的 `proxy.routing` 支持场景路由。
 
-Example `~/.ccs/config.yaml`:
+示例 `~/.ccs/config.yaml`：
 
 ```yaml
 proxy:
@@ -168,46 +153,39 @@ proxy:
     webSearch: "openrouter:perplexity/sonar-pro"
 ```
 
-Current scenario detection:
+当前场景检测：
 
-- `background`: requested model contains `haiku`
-- `think`: Anthropic `thinking` is enabled
-- `longContext`: estimated request tokens exceed `longContextThreshold`
-- `webSearch`: tool list includes `web_search`
-- `default`: fallback selector when the above do not apply
+- `background`：请求的模型包含 `haiku`
+- `think`：Anthropic `thinking` 已启用
+- `longContext`：估计的请求 token 超过 `longContextThreshold`
+- `webSearch`：工具列表包含 `web_search`
+- `default`：当上述不适用时的回退选择器
 
-Routing decisions are logged through CCS structured logs.
+路由决策通过 CCS 结构化日志记录。
 
-`longContextThreshold` uses an intentionally approximate token estimate based on
-message characters, tool payload size, and a `chars / 4` heuristic. Tune the
-threshold conservatively if your routing decision needs a sharper cutoff near
-the boundary.
+`longContextThreshold` 使用基于消息字符、工具 payload 大小和 `chars / 4` 启发式的故意近似 token 估计。如果您的路由决策在边界附近需要更清晰的截止，请保守地调整阈值。
 
-## How Profile Detection Works
+## Profile 检测如何工作
 
-CCS keeps these profiles in the normal API/settings-profile flow.
+CCS 在正常 API/settings-profile 流中保持这些 profiles。
 
-Anthropic-compatible endpoints such as:
+仍然直接启动的 Anthropic 兼容端点：
 
 - `https://api.anthropic.com`
 - `https://api.z.ai/api/anthropic`
 - `https://api.deepseek.com/anthropic`
 
-continue to launch directly.
-
-OpenAI-compatible endpoints such as:
+通过本地代理路由的 OpenAI 兼容端点：
 
 - `https://router.huggingface.co/v1`
 - `https://api.openai.com/v1`
 - `http://localhost:11434`
 
-are routed through the local proxy for Claude-target launches.
-
-## Provider Setup
+## Provider 设置
 
 ### DeepSeek
 
-Use a settings profile whose env looks like:
+使用其 env 如下的 settings profile：
 
 ```json
 {
@@ -220,7 +198,7 @@ Use a settings profile whose env looks like:
 }
 ```
 
-Typical override target:
+典型覆盖目标：
 
 - `deepseek:deepseek-reasoner`
 
@@ -237,12 +215,12 @@ Typical override target:
 }
 ```
 
-Useful when you want:
+当您想要以下内容时有用：
 
-- model fan-out behind one provider profile
-- long-context or web-search scenario targets
+- 一个 provider profile 后的模型扇出
+- 长期上下文或网络搜索场景目标
 
-### Ollama / Local Gateways
+### Ollama / 本地网关
 
 ```json
 {
@@ -255,12 +233,11 @@ Useful when you want:
 }
 ```
 
-For self-signed HTTPS gateways, add `CCS_OPENAI_PROXY_INSECURE=1`.
+对于自签名 HTTPS 网关，添加 `CCS_OPENAI_PROXY_INSECURE=1`。
 
-### DashScope / Qwen Compatible Mode
+### DashScope / Qwen 兼容模式
 
-DashScope's compatible endpoint works even when older settings files still
-carry a stale Anthropic-style provider hint:
+DashScope 兼容端点即使旧设置文件仍携带过期的 Anthropic 风格 provider 提示也能工作：
 
 ```json
 {
@@ -273,13 +250,11 @@ carry a stale Anthropic-style provider hint:
 }
 ```
 
-CCS now infers the OpenAI-compatible route from the base URL and does not let
-that stale provider hint block proxy routing.
+CCS 现在从 base URL 推断 OpenAI 兼容路由，不会让那个过期的 provider 提示阻止代理路由。
 
-## Self-Signed TLS
+## 自签名 TLS
 
-If your upstream gateway uses a self-signed or privately issued certificate,
-set this in the profile settings JSON:
+如果您的上游网关使用自签名或私人发行的证书，请在 profile 设置 JSON 中设置：
 
 ```json
 {
@@ -289,72 +264,71 @@ set this in the profile settings JSON:
 }
 ```
 
-That flag is respected by both:
+该标志被以下两者尊重：
 
-- `ccs <profile>` auto-routing
+- `ccs <profile>` 自动路由
 - `ccs proxy start <profile>`
 
-## Supported Runtime Paths
+## 支持的运行时路径
 
-- `ccs <profile>` with Claude target: auto-starts the local proxy when needed
-- `ccs proxy start <profile>`: starts the proxy explicitly
-- `GET /`: proxy info and bound profile details
-- `GET /health`: proxy liveness check
-- `GET /v1/models`: local view of the configured model mapping
-- `POST /v1/messages`: Anthropic-compatible request entrypoint
+- `ccs <profile>` 使用 Claude 目标：需要时自动启动本地代理
+- `ccs proxy start <profile>`：显式启动代理
+- `GET /`：代理信息和绑定 profile 详情
+- `GET /health`：代理存活检查
+- `GET /v1/models`：配置模型映射的本地视图
+- `POST /v1/messages`：Anthropic 兼容请求入口点
 
-## Troubleshooting
+## 故障排除
 
-### Missing or invalid local proxy token
+### 缺少或无效的本地代理 token
 
-- Re-run `eval "$(ccs proxy activate)"`
-- Check `ccs proxy status` and confirm the expected profile is running
+- 重新运行 `eval "$(ccs proxy activate)"`
+- 检查 `ccs proxy status` 并确认预期 profile 正在运行
 
-### Self-signed or private CA upstream
+### 自签名或私人 CA 上游
 
-- Add `CCS_OPENAI_PROXY_INSECURE=1` to the profile settings
-- Restart the proxy after changing the setting
+- 在 profile 设置中添加 `CCS_OPENAI_PROXY_INSECURE=1`
+- 更改设置后重启代理
 
-### Need to pin or verify the local port
+### 需要固定或验证本地端口
 
-- Check the active binding with `ccs proxy status hf`
-- Pin a one-off port with `ccs proxy start hf --port 3460`
-- Reserve a stable profile port with `proxy.profile_ports`
-- Re-run `ccs proxy activate hf` after changing the port
+- 使用 `ccs proxy status hf` 检查活动绑定
+- 使用 `ccs proxy start hf --port 3460` 固定一次性端口
+- 使用 `proxy.profile_ports` 保留稳定的 profile 端口
+- 更改端口后重新运行 `ccs proxy activate hf`
 
-### Provider returns `429` or empty upstream output
+### Provider 返回 `429` 或空上游输出
 
-- CCS now preserves upstream rate-limit errors and retry headers
-- Empty or malformed provider JSON is returned as Anthropic-style `api_error`
+- CCS 现在保留上游速率限制错误和重试头
+- 空或格式错误的 provider JSON 作为 Anthropic 风格的 `api_error` 返回
 
-### Requests route to the wrong model/profile
+### 请求路由到错误的模型/profile
 
-- Use an explicit selector such as `profile:model`
-- Review `proxy.routing` if scenario routing is enabled
-- Check CCS structured logs in `~/.ccs/logs/current.jsonl` for routing decisions
+- 使用显式选择器如 `profile:model`
+- 如果启用了场景路由，检查 `proxy.routing`
+- 在 `~/.ccs/logs/current.jsonl` 中检查 CCS 结构化日志以获取路由决策
 
-## Validation
+## 验证
 
-The shipped coverage includes:
+随附覆盖包括：
 
-- unit tests for OpenAI-compatible profile detection
-- unit tests for Anthropic -> OpenAI request translation
-- unit tests for request-time profile/model routing and scenario routing
-- unit tests for multi-line SSE parsing
-- integration tests for `/v1/messages` request/response translation
-- integration tests for rate limits, empty upstream responses, timeout handling,
-  thinking/tool-call chunk streaming, and request-time routing
-- integration tests for daemon lifecycle and `/health` / `/v1/models`
-- e2e tests for `ccs proxy` lifecycle
-- e2e tests for `ccs <profile>` auto-routing through a mock upstream
+- OpenAI 兼容 profile 检测的单元测试
+- Anthropic -> OpenAI 请求转换的单元测试
+- 请求时 profile/model 路由和场景路由的单元测试
+- 多行 SSE 解析的单元测试
+- `/v1/messages` 请求/响应转换的集成测试
+- 速率限制、空上游响应、超时处理、thinking/tool-call chunk 流和请求时路由的集成测试
+- daemon 生命周期和 `/health` / `/v1/models` 的集成测试
+- `ccs proxy` 生命周期的 e2e 测试
+- 通过模拟上游的 `ccs <profile>` 自动路由的 e2e 测试
 
-Focused verification command:
+专注验证命令：
 
 ```bash
 bun test tests/e2e/proxy-command.e2e.test.ts tests/integration/proxy/request-routing.test.ts --coverage
 ```
 
-Pre-merge gate:
+预合并门禁：
 
 ```bash
 bun run validate

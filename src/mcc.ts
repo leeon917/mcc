@@ -81,6 +81,8 @@ async function cmdLaunch(args: string[]): Promise<void> {
     process.exit(1);
   }
 
+  console.log(`[i] Profile: ${profileName} (model: ${profile.model}, protocol: ${profile.protocol || 'anthropic'})`);
+
   const apiKey = getProfileApiKey(profileName);
   if (!apiKey) {
     console.error(`[!] No API key found for profile: ${profileName}`);
@@ -88,17 +90,24 @@ async function cmdLaunch(args: string[]): Promise<void> {
   }
 
   const instancePath = await instanceMgr.ensureInstance(profileName);
+  console.log(`[i] Instance: ${instancePath}`);
+
+  console.log('[i] Syncing MCP servers...');
   syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name), profileName);
 
-  // Initialize logging session
+  // Initialize logging session — compute logDir BEFORE init() so it gets passed directly
   const sessionId = makeSessionId();
-  const logDir = init(sessionId);
+  const mccHome = process.env.MCC_HOME ?? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '~', '.mcc');
+  const logDir = path.join(mccHome, 'logs', profileName, sessionId);
+  init(sessionId, logDir);
   log.info('MCC', `Session starting: ${profileName} | log: ${logDir}`);
+  console.log(`[i] Session: ${sessionId}`);
 
   const env = buildProfileEnv(profile, apiKey, instancePath);
   env.MCC_CURRENT_PROFILE = profileName;
   env.MCC_LOG_SESSION_ID = sessionId;
   env.MCC_LOG_DIR = logDir;
+  console.log('[i] Environment ready');
 
   // Start translation proxy for OpenAI-compatible profiles
   if (profile.protocol === 'openai') {
@@ -116,6 +125,7 @@ async function cmdLaunch(args: string[]): Promise<void> {
     }
   }
 
+  console.log('[i] Launching Claude Code...');
   const remainingArgs = args.slice(1);
   const child = spawn('claude', remainingArgs, {
     env: { ...process.env, ...env },

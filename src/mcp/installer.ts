@@ -27,6 +27,7 @@ function getMcpInstallDir(): string {
 export function installBuiltinServers(): void {
   const installDir = getMcpInstallDir();
   fs.mkdirSync(installDir, { recursive: true, mode: 0o700 });
+  const copied: string[] = [];
 
   // Install MCP server entry points
   for (const server of BUILTIN_MCP_SERVERS) {
@@ -43,6 +44,7 @@ export function installBuiltinServers(): void {
     }
     fs.copyFileSync(sourcePath, destPath);
     fs.chmodSync(destPath, 0o700);
+    copied.push(server.name);
   }
 
   // Install mcp-hooks/ (runtime files referenced by MCP servers)
@@ -59,7 +61,25 @@ export function installBuiltinServers(): void {
       }
       fs.copyFileSync(src, dest);
       fs.chmodSync(dest, 0o700);
+      copied.push(`hooks/${entry}`);
     }
+  }
+
+  // Install shared logger to ~/.mcc/shared/logger.cjs
+  const sharedSource = path.join(__dirname, '..', '..', 'lib', 'shared', 'logger.cjs');
+  const sharedDestDir = path.join(getMccHome(), 'shared');
+  if (fs.existsSync(sharedSource)) {
+    fs.mkdirSync(sharedDestDir, { recursive: true, mode: 0o700 });
+    const sharedDest = path.join(sharedDestDir, 'logger.cjs');
+    if (!fs.existsSync(sharedDest) || !fs.readFileSync(sharedSource).equals(fs.readFileSync(sharedDest))) {
+      fs.copyFileSync(sharedSource, sharedDest);
+      fs.chmodSync(sharedDest, 0o700);
+      copied.push('shared/logger.cjs');
+    }
+  }
+
+  if (copied.length > 0) {
+    console.log(`[i] MCP files installed: ${copied.join(', ')}`);
   }
 }
 
@@ -200,6 +220,9 @@ export function syncInstanceMcpServers(
     encoding: 'utf8',
     mode: 0o600,
   });
+
+  const count = Object.keys(mcpServers).length;
+  console.log(`[i] Synced ${count} MCP server(s) to ${path.join(instancePath, '.claude.json')}`);
 }
 
 /**

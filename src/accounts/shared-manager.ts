@@ -38,6 +38,7 @@ export class SharedManager {
    * Creates symlinks from instance/<item> -> ~/.claude/<item>
    */
   linkSharedDirectories(instancePath: string): void {
+    const linked: string[] = [];
     for (const item of SHARED_ITEMS) {
       const claudePath = path.join(this.claudeDir, item.name);
       const linkPath = path.join(instancePath, item.name);
@@ -63,6 +64,7 @@ export class SharedManager {
       try {
         const symlinkType = item.type === 'directory' ? 'dir' : 'file';
         fs.symlinkSync(claudePath, linkPath, symlinkType);
+        linked.push(item.name);
       } catch (_err) {
         // Windows fallback: copy if symlink fails (Developer Mode not enabled)
         if (process.platform === 'win32') {
@@ -72,10 +74,14 @@ export class SharedManager {
             fs.copyFileSync(claudePath, linkPath);
           }
           console.warn(`[!] Symlink failed for ${item.name}, copied instead (enable Developer Mode for symlinks)`);
+          linked.push(`${item.name} (copied)`);
         } else {
           throw _err;
         }
       }
+    }
+    if (linked.length > 0) {
+      console.log(`[i] Shared items linked: ${linked.join(', ')}`);
     }
   }
 

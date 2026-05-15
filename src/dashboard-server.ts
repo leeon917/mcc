@@ -265,12 +265,58 @@ async function main() {
   // PUT /api/mcp-config
   app.put('/api/mcp-config', (req, res) => {
     try {
-      const config = req.body as McpConfig;
-      if (!config || !config.websearch || !config.imageAnalysis) {
+      const newConfig = req.body as McpConfig;
+      if (!newConfig || !newConfig.websearch || !newConfig.imageAnalysis) {
         res.status(400).json({ error: 'Invalid MCP config' });
         return;
       }
-      writeMcpConfig(config);
+
+      const oldConfig = readMcpConfig();
+      const changes: string[] = [];
+
+      // Section-level toggles
+      if (oldConfig.websearch.enabled !== newConfig.websearch.enabled) {
+        changes.push(`websearch ${newConfig.websearch.enabled ? 'enabled' : 'disabled'}`);
+      }
+      if (oldConfig.imageAnalysis.enabled !== newConfig.imageAnalysis.enabled) {
+        changes.push(`imageAnalysis ${newConfig.imageAnalysis.enabled ? 'enabled' : 'disabled'}`);
+      }
+
+      // WebSearch provider changes
+      for (const [id, np] of Object.entries(newConfig.websearch.providers)) {
+        const op = oldConfig.websearch.providers[id];
+        if (!op) continue;
+        if (op.enabled !== np.enabled) {
+          changes.push(`ws/${id} ${np.enabled ? 'on' : 'off'}`);
+        }
+        if (op.apiKey !== np.apiKey) {
+          changes.push(np.apiKey ? `ws/${id} apiKey updated` : `ws/${id} apiKey cleared`);
+        }
+      }
+
+      // ImageAnalysis provider changes
+      for (const [id, np] of Object.entries(newConfig.imageAnalysis.providers)) {
+        const op = oldConfig.imageAnalysis.providers[id];
+        if (!op) continue;
+        if (op.enabled !== np.enabled) {
+          changes.push(`ia/${id} ${np.enabled ? 'on' : 'off'}`);
+        }
+        if (op.apiKey !== np.apiKey) {
+          changes.push(np.apiKey ? `ia/${id} apiKey updated` : `ia/${id} apiKey cleared`);
+        }
+        if (op.model !== np.model) {
+          changes.push(`ia/${id} model=${np.model}`);
+        }
+      }
+
+      writeMcpConfig(newConfig);
+
+      if (changes.length > 0) {
+        console.log(`[i] MCP config updated: ${changes.join('; ')}`);
+      } else {
+        console.log('[i] MCP config saved (no changes detected)');
+      }
+
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });

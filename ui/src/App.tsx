@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,9 @@ export default function App() {
   const [mcpConfig, setMcpConfig] = useState<McpConfig | null>(null);
   const [presets, setPresets] = useState<ProviderPresets | null>(null);
   const [mcpSaving, setMcpSaving] = useState(false);
+  const [mcpDirty, setMcpDirty] = useState(false);
+  const [mcpSaved, setMcpSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Form state
   const [newName, setNewName] = useState('');
@@ -80,6 +83,7 @@ export default function App() {
       setPresets(pres);
       setAllMcpServers(allMcps);
       setExternalMcpServers(externalMcps);
+      setMcpDirty(false);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
@@ -157,54 +161,73 @@ export default function App() {
     catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove external MCP'); }
   }
 
-  // MCP config save
-  const saveMcpConfig = useCallback(async (config: McpConfig) => {
+  // MCP config save — explicit save entry point
+  const handleSaveMcpConfig = useCallback(async () => {
+    if (!mcpConfig || !mcpDirty) return;
     setMcpSaving(true);
     try {
-      await updateMcpConfig(config);
-      setMcpConfig(config);
+      await updateMcpConfig(mcpConfig);
+      setMcpDirty(false);
+      setMcpSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setMcpSaved(false), 2000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save MCP config');
     } finally {
       setMcpSaving(false);
     }
-  }, []);
+  }, [mcpConfig, mcpDirty]);
 
   function updateWsProvider(id: string, field: string, value: unknown) {
-    if (!mcpConfig) return;
-    const next = JSON.parse(JSON.stringify(mcpConfig)) as McpConfig;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (next.websearch.providers[id] as any)[field] = value;
-    saveMcpConfig(next);
+    setMcpConfig(prev => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (next.websearch.providers[id] as any)[field] = value;
+      return next;
+    });
+    setMcpDirty(true);
   }
 
   function updateIaProvider(id: string, field: string, value: unknown) {
-    if (!mcpConfig) return;
-    const next = JSON.parse(JSON.stringify(mcpConfig)) as McpConfig;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (next.imageAnalysis.providers[id] as any)[field] = value;
-    saveMcpConfig(next);
+    setMcpConfig(prev => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (next.imageAnalysis.providers[id] as any)[field] = value;
+      return next;
+    });
+    setMcpDirty(true);
   }
 
   function toggleWsEnabled(id: string) {
-    if (!mcpConfig) return;
-    const next = JSON.parse(JSON.stringify(mcpConfig)) as McpConfig;
-    next.websearch.providers[id].enabled = !next.websearch.providers[id].enabled;
-    saveMcpConfig(next);
+    setMcpConfig(prev => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      next.websearch.providers[id].enabled = !next.websearch.providers[id].enabled;
+      return next;
+    });
+    setMcpDirty(true);
   }
 
   function toggleIaEnabled(id: string) {
-    if (!mcpConfig) return;
-    const next = JSON.parse(JSON.stringify(mcpConfig)) as McpConfig;
-    next.imageAnalysis.providers[id].enabled = !next.imageAnalysis.providers[id].enabled;
-    saveMcpConfig(next);
+    setMcpConfig(prev => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      next.imageAnalysis.providers[id].enabled = !next.imageAnalysis.providers[id].enabled;
+      return next;
+    });
+    setMcpDirty(true);
   }
 
   function toggleMcpSection(section: 'websearch' | 'imageAnalysis') {
-    if (!mcpConfig) return;
-    const next = JSON.parse(JSON.stringify(mcpConfig)) as McpConfig;
-    next[section].enabled = !next[section].enabled;
-    saveMcpConfig(next);
+    setMcpConfig(prev => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      next[section].enabled = !next[section].enabled;
+      return next;
+    });
+    setMcpDirty(true);
   }
 
   if (loading) {
@@ -328,7 +351,45 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="mcp">
-            <div className="space-y-4">
+            <div
+              className="space-y-4"
+              onKeyDown={(e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' && mcpDirty && !mcpSaving) {
+                  const tag = (e.target as HTMLElement).tagName;
+                  if (tag === 'INPUT' || tag === 'TEXTAREA') {
+                    e.preventDefault();
+                    handleSaveMcpConfig();
+                  }
+                }
+              }}
+            >
+              {/* Save bar */}
+              {(mcpDirty || mcpSaved) && (
+                <div className={`rounded-lg border p-3 flex items-center justify-between ${
+                  mcpSaved
+                    ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
+                    : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950'
+                }`}>
+                  <div>
+                    {mcpSaved ? (
+                      <>
+                        <span className="text-sm text-green-700 dark:text-green-400 font-medium">Saved</span>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Changes won't affect running MCC instances. Restart to apply.
+                        </p>
+                      </>
+                    ) : (
+                      <span className="text-sm text-amber-700 dark:text-amber-400">You have unsaved changes</span>
+                    )}
+                  </div>
+                  {mcpDirty && (
+                    <Button size="sm" onClick={handleSaveMcpConfig} disabled={mcpSaving}>
+                      {mcpSaving ? 'Saving...' : 'Save'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* WebSearch Section */}
               <Card>
                 <CardHeader>
@@ -379,7 +440,6 @@ export default function App() {
                       })}
                     </div>
                   )}
-                  {mcpSaving && <p className="mt-2 text-xs text-muted-foreground">Saving...</p>}
                 </CardContent>
               </Card>
 
@@ -449,7 +509,6 @@ export default function App() {
                       })}
                     </div>
                   )}
-                  {mcpSaving && <p className="mt-2 text-xs text-muted-foreground">Saving...</p>}
                 </CardContent>
               </Card>
 

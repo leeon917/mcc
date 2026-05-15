@@ -1,75 +1,123 @@
--- Active: 1768900505806@@1.94.118.252@3306@chat_service
 # MCC - My Cloud Code
 
 ## 项目概述
 
-MCC 是一个轻量级的多账号切换工具，用于在多个 Claude Code 账号（不同 API Provider）之间快速切换。
+MCC 是一个轻量级多账号切换工具，用于在多个 Claude Code 账号（不同 API Provider）之间快速切换。
 
 核心功能：
-- 多账号管理（deepseek、qwen、glm、km、mm、anthropic）
-- 直接 API 模式（无需本地 proxy）
+- 多 profile 管理（deepseek、qwen、glm、km、mm、anthropic）
+- 直接 API 模式和 OpenAI 兼容模式（自动翻译 proxy）
 - MCP 工具支持（WebSearch、ImageAnalysis）
-- 每个账号独立的 `CLAUDE_CONFIG_DIR` 隔离
+- 每个 profile 独立的 `CLAUDE_CONFIG_DIR` 隔离
+- 跨 profile 共享 skills/commands/agents/plugins/settings
 
 ## 设计原则
 
-- **KISS**：简单直接，不用 OAuth，不用本地 proxy
-- **File-based**：API Key 存在 `~/.mcc/accounts/<name>/.key`
+- **KISS**：简单直接，不用 OAuth
+- **File-based**：API Key 存 `~/.mcc/profiles/<name>/.key`
 - **YAGNI**：只做需要的功能
 
 ## 目录结构
 
 ```
 src/
-├── mcc.ts                    # CLI 入口
+├── mcc.ts                      # CLI 入口
 ├── accounts/
-│   ├── store.ts              # 账号元数据存储
-│   └── instance-manager.ts   # CLAUDE_CONFIG_DIR 隔离
+│   ├── store.ts                # Profile 元数据存储
+│   ├── instance-manager.ts     # CLAUDE_CONFIG_DIR 隔离
+│   └── shared-manager.ts       # 跨 instance 共享目录（symlink）
 ├── core/
-│   └── model-router.ts       # 模型路由（复用 provider-preset-catalog）
+│   └── model-router.ts         # Profile env 构建 + tiered model
 ├── mcp/
-│   ├── registry.ts           # MCP 服务器注册表
-│   └── installer.ts          # MCP 安装到 instance
+│   ├── registry.ts             # MCP 服务器注册表（内置）
+│   ├── installer.ts            # MCP 安装到 instance
+│   ├── external-registry.ts    # 外部 MCP 注册表
+│   └── mcp-config.ts           # WebSearch/ImageAnalysis provider 配置
+├── proxy/
+│   ├── proxy-server.ts         # OpenAI→Anthropic 翻译服务器
+│   ├── proxy-daemon.ts         # Proxy 生命周期管理
+│   ├── proxy-entry.ts          # Proxy 进程入口
+│   ├── proxy-paths.ts          # PID/session 文件路径
+│   └── upstream-url.ts         # upstream URL 解析
+├── dashboard-server.ts          # Express Dashboard API
 └── shared/
-    └── provider-preset-catalog.ts  # 模型 preset（从 CCS 复制）
+    ├── logger.ts               # 日志系统（session-based，logrotate）
+    └── provider-preset-catalog.ts
+
 lib/
-├── mcp/                      # MCP server JS 文件
+├── mcp/                        # MCP server JS 文件
 │   ├── mcc-websearch-server.cjs
 │   └── mcc-image-analysis-server.cjs
-└── mcp-hooks/                # WebSearch hooks
-    ├── websearch-transformer.cjs
-    └── image-analysis-runtime.cjs
+├── mcp-hooks/                  # MCP 运行时 hook
+│   ├── logger.cjs
+│   ├── image-analysis-runtime.cjs
+│   ├── image-analyzer-transformer.cjs
+│   └── websearch-transformer.cjs
+└── shared/
+    └── logger.cjs
 ```
 
 ## 存储结构
 
 ```
 ~/.mcc/
-├── accounts.json             # 账号元数据
-├── accounts/                 # per-account
-│   └── <name>/.key          # API key
-├── instances/                # per-account isolated dirs
+├── profiles.json               # Profile 元数据
+├── profiles/                  # per-profile
+│   └── <name>/.key           # API key
+├── instances/                 # per-profile isolated dirs
 │   └── <name>/
-│       ├── .mcp/mcpServers.json
+│       ├── .claude.json       # Claude Code 实际读取的 MCP 配置
+│       ├── .mcp/mcpServers.json  # 参考副本
 │       └── (CLAUDE_CONFIG_DIR subdirs)
-└── mcp/                     # bundled MCP servers
+├── mcp/                       # 内置 MCP server 文件
+├── mcp-hooks/                 # MCP runtime hook 文件
+├── external-mcp-servers.json  # 用户添加的外部 MCP 定义
+├── mcp-config.json            # WebSearch/ImageAnalysis provider 配置
+└── proxy/                     # Proxy PID/session 文件
 ```
 
 ## 开发
 
 ```bash
 npm install
-npm run build
-npm run dev -- help
+npm run build        # tsc
+npm run dev -- help  # 直接跑 dist/
+npm run build:ui     # 构建 React Dashboard
+npm run dashboard    # 编译 + 启动 Dashboard（端口 3000）
 ```
+
+## CLI 命令
+
+```bash
+mcc <profile> [args...]          # 用指定 profile 启动 Claude Code
+mcc profile add <name>           # 添加 profile
+mcc profile list                 # 列出所有 profile
+mcc profile remove <name>        # 删除 profile
+mcc profile default [name]       # 查询或设默认 profile
+mcc mcp list                     # 列出所有 MCP server
+mcc mcp add --name <id> --command <cmd> [--display-name...] [--args...] [--provider-ref...]  # 添加外部 MCP
+mcc mcp remove <name>           # 删除外部 MCP
+mcc mcp enable <name> <profile> # 在指定 profile 启用外部 MCP
+mcc mcp disable <name> <profile> # 在指定 profile 禁用外部 MCP
+mcc dashboard                    # 启动 Web Dashboard（端口 3000）
+mcc help                         # 显示帮助
+```
+
+## Profile 与 Protocol
+
+每个 profile 支持 `protocol: 'anthropic'`（默认，直接 API）或 `protocol: 'openai'`（通过翻译 proxy）。
+
+OpenAI 兼容 profile 启动时自动在 `127.0.0.1:43456-43555` 范围内启动一个 OpenAI→Anthropic 翻译 proxy，Claude Code 的请求经过本地 proxy 转发给 upstream OpenAI-compatible API。
 
 ## MCP 工具
 
 内置两个 MCP server：
 - `mcc-websearch` - Web 搜索（Exa/Tavily/Brave/DuckDuckGo）
-- `mcc-image-analysis` - 图片分析
+- `mcc-image-analysis` - 图片分析（支持 OpenAI vision 格式）
 
-通过 `MCC_WEBSEARCH_*` / `MCC_IMAGE_ANALYSIS_*` 环境变量配置。
+外部 MCP 通过 `mcc mcp add` 注册，支持 `${MCC_PROVIDER_KEY:<providerId>}` 引用 `mcp-config.json` 里配置的 API key。
+
+MCP provider 配置在 `~/.mcc/mcp-config.json`。
 
 ## 记忆索引
 

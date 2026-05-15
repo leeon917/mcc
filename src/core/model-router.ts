@@ -10,6 +10,7 @@
  */
 
 import type { Profile } from '../accounts/store';
+import { readMcpConfig, getActiveImageAnalysisProvider, getEnabledWebSearchProviders } from '../mcp/mcp-config';
 
 export interface ProfileEnv {
   ANTHROPIC_BASE_URL: string;
@@ -22,6 +23,7 @@ export interface ProfileEnv {
   DISABLE_TELEMETRY: '1';
   DISABLE_COST_WARNINGS: '1';
   CLAUDE_CONFIG_DIR: string;
+  [key: string]: string; // Allow MCP env vars
 }
 
 /**
@@ -30,7 +32,13 @@ export interface ProfileEnv {
  */
 export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDir: string): ProfileEnv {
   const model = profile.model;
-  return {
+
+  // Read MCP config for provider settings
+  const mcpConfig = readMcpConfig();
+  const wsProviders = getEnabledWebSearchProviders(mcpConfig);
+  const iaProvider = getActiveImageAnalysisProvider(mcpConfig);
+
+  const env: Record<string, string> = {
     ANTHROPIC_BASE_URL: profile.baseUrl,
     ANTHROPIC_AUTH_TOKEN: apiKey,
     ANTHROPIC_MODEL: model,
@@ -42,4 +50,33 @@ export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDi
     DISABLE_COST_WARNINGS: '1',
     CLAUDE_CONFIG_DIR: claudeConfigDir,
   };
+
+  // MCP: WebSearch
+  env.MCC_WEBSEARCH_ENABLED = mcpConfig.websearch.enabled ? '1' : '0';
+  for (const p of wsProviders) {
+    env[`MCC_WEBSEARCH_${p.toUpperCase()}`] = '1';
+    // Set API key env vars for providers that need them
+    const providerConfig = mcpConfig.websearch.providers[p];
+    if (providerConfig?.apiKey) {
+      const keyEnvMap: Record<string, string> = {
+        exa: 'MCC_WEBSEARCH_EXA_API_KEY',
+        tavily: 'MCC_WEBSEARCH_TAVILY_API_KEY',
+        brave: 'MCC_WEBSEARCH_BRAVE_API_KEY',
+      };
+      if (keyEnvMap[p]) {
+        env[keyEnvMap[p]] = providerConfig.apiKey;
+      }
+    }
+  }
+
+  // MCP: Image Analysis
+  if (mcpConfig.imageAnalysis.enabled && iaProvider) {
+    env.MCC_IMAGE_ANALYSIS_ENABLED = '1';
+    env.MCC_IMAGE_ANALYSIS_RUNTIME_BASE_URL = iaProvider.baseUrl;
+    env.MCC_IMAGE_ANALYSIS_RUNTIME_API_KEY = iaProvider.apiKey;
+    env.MCC_IMAGE_ANALYSIS_MODEL = iaProvider.model;
+    env.MCC_IMAGE_ANALYSIS_FORMAT = iaProvider.format;
+  }
+
+  return env as unknown as ProfileEnv;
 }

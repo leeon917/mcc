@@ -4,6 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import type { ExternalMcpServer } from './external-registry';
 
 export interface McpServerConfig {
   type: 'stdio' | 'http';
@@ -68,6 +69,21 @@ export function getBuiltinServerPath(serverName: string): string | null {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
-export function getServerByName(name: string): McpRegistryEntry | undefined {
-  return BUILTIN_MCP_SERVERS.find((s) => s.name === name);
+export function getServerByName(
+  name: string,
+): McpRegistryEntry | ExternalMcpServer | undefined {
+  const builtin = BUILTIN_MCP_SERVERS.find((s) => s.name === name);
+  if (builtin) return builtin;
+  // Avoid circular import at module level — require at runtime
+  const { readExternalMcpRegistry } = require('./external-registry') as {
+    readExternalMcpRegistry: () => ExternalMcpServer[];
+  };
+  return readExternalMcpRegistry().find((s) => s.name === name);
+}
+
+export function getAllServers(): Array<McpRegistryEntry | ExternalMcpServer> {
+  const { readExternalMcpRegistry } = require('./external-registry') as {
+    readExternalMcpRegistry: () => ExternalMcpServer[];
+  };
+  return [...BUILTIN_MCP_SERVERS, ...readExternalMcpRegistry()];
 }

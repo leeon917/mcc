@@ -38,7 +38,13 @@ import { startProxy } from './proxy/proxy-daemon';
 import { log, init, makeSessionId, isDebugEnabled } from './shared/logger';
 import { readMcpConfig, getEnabledWebSearchProviders, getActiveImageAnalysisProvider } from './mcp/mcp-config';
 
+const PKG_VERSION = '0.1.4';
+
 const instanceMgr = new MCCInstanceManager();
+
+function showVersion(): void {
+  console.log(`@hileeon/mcc ${PKG_VERSION}`);
+}
 
 function showHelp(): void {
   console.log(`
@@ -51,6 +57,7 @@ Usage: mcc [mcc-options] <profile> [claude-options...]
 
 MCC Options:
   -h, --help          Show this help
+  -v, --version       Show version number
   --                Explicit separator (everything after is for Claude Code)
 
   Note: All flags after <profile> are passed directly to Claude Code.
@@ -392,38 +399,39 @@ async function cmdMcpDisable(args: string[]): Promise<void> {
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
 
-  // -h / --help
-  if (rawArgs[0] === '-h' || rawArgs[0] === '--help' || rawArgs.length === 0) {
+  // Global flags — always intercepted regardless of position
+  // NOTE: -v/-h are intentionally NOT subcommand-aware for simplicity
+  if (rawArgs[0] === '-h' || rawArgs[0] === '--help') {
+    showHelp();
+    return;
+  }
+  if (rawArgs[0] === '-v' || rawArgs[0] === '--version') {
+    showVersion();
+    return;
+  }
+
+  // No args: show help
+  if (rawArgs.length === 0) {
     showHelp();
     return;
   }
 
-  // Simple parse: first arg is the profile, everything after goes to Claude
-  // Use -- to explicitly separate: mcc deepseek -- --print "hello"
-  const remaining: string[] = [];
-  let i = 0;
-  while (i < rawArgs.length) {
-    const arg = rawArgs[i];
-    if (arg === '--') {
-      // Explicit separator: rest goes to Claude (including --)
-      remaining.push(...rawArgs.slice(i));
-      break;
-    } else {
-      // First non-flag = profile; everything after it (incl. flags) goes to Claude
-      remaining.push(...rawArgs.slice(i));
-      break;
-    }
-  }
+  // Parse: mcc <profile> [claude-args...]
+  // Explicit separator: mcc <profile> -- <claude-args...>
+  // Everything after first arg (the profile) is passed to Claude as-is.
+  const dashIdx = rawArgs.indexOf('--');
+  const profileArgs = dashIdx === -1 ? rawArgs : rawArgs.slice(0, dashIdx);
+  const claudeArgs = dashIdx === -1 ? [] : rawArgs.slice(dashIdx); // includes '--'
 
-  if (remaining.length === 0) {
+  if (profileArgs.length === 0) {
     showHelp();
     return;
   }
 
   installBuiltinServers();
 
-  const command = remaining[0];
-  const args = remaining.slice(1);
+  const command = profileArgs[0];
+  const args = profileArgs.slice(1);
 
   switch (command) {
     // mcc <profile> - launch with profile
@@ -463,8 +471,8 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      // Treat as profile launch
-      await cmdLaunch(rawArgs);
+      // Treat as profile launch; pass profile name + claude args
+      await cmdLaunch([command, ...args, ...claudeArgs]);
   }
 }
 

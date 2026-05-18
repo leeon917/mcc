@@ -1,6 +1,6 @@
 {
   "name": "@hileeon/mcc",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "My Cloud Code - Multi-provider account and model switching for Claude Code",
   "license": "MIT",
   "author": "Zhang Chicheng",
@@ -13,13 +13,20 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "files": [
+    "dist",
+    "lib",
+    "ui/dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs');const p='dist/mcc.js';const c=fs.readFileSync(p,'utf8');fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c);\"",
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "dev": "node dist/mcc.js",
     "build:ui": "cd ui && npm install && npm run build",
-    "dashboard": "npm run build && npm run build:ui && node dist/dashboard-server.js"
+    "build:all": "npm run build && npm run build:ui",
+    "dashboard": "npm run build && npm run build:ui && node dist/dashboard-server.js",
+    "prepublishOnly": "npm run build:all"
   },
   "dependencies": {
     "cors": "^2.8.5",

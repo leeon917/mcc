@@ -390,10 +390,30 @@ async function main() {
     }
   });
 
-  app.listen(PORT, () => {
-    console.log(`[OK] MCC Dashboard: http://localhost:${PORT}`);
-    openBrowser(`http://localhost:${PORT}`);
-  });
+  const startServer = async (): Promise<void> => {
+    let port = PORT;
+    while (port < PORT + 10) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const server = app.listen(port, () => resolve());
+          server.on('error', reject);
+        });
+        console.log(`[OK] MCC Dashboard: http://localhost:${port}`);
+        openBrowser(`http://localhost:${port}`);
+        return;
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+          console.log(`[!] Port ${port} in use, trying ${port + 1}...`);
+          port++;
+        } else {
+          throw err;
+        }
+      }
+    }
+    console.error(`[!] Could not find an available port in range ${PORT}–${PORT + 9}`);
+  };
+
+  startServer();
 }
 
 process.on('SIGINT', () => {

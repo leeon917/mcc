@@ -163,7 +163,7 @@ async function cmdLaunch(args: string[]): Promise<void> {
   // Start translation proxy for OpenAI-compatible profiles
   if (profile.protocol === 'openai') {
     try {
-      const proxyInfo = await startProxy(profileName, profile.baseUrl, apiKey, profile.model);
+      const proxyInfo = await startProxy(profileName, profile.baseUrl, apiKey, profile.model, profile.proxyChatCompletionsPath);
       env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyInfo.port}`;
       env.ANTHROPIC_AUTH_TOKEN = proxyInfo.authToken;
       // MCP image analysis also needs to go through the proxy
@@ -202,6 +202,7 @@ async function cmdProfileAdd(args: string[]): Promise<void> {
   const apiKey = getArg('--api-key');
   const model = getArg('--model') ?? 'claude-sonnet-4-6';
   const protocol = (getArg('--protocol') as 'anthropic' | 'openai') ?? 'anthropic';
+  const proxyChatCompletionsPath = getArg('--proxy-chat-completions-path');
 
   if (!baseUrl || !apiKey) {
     console.error('[!] --base-url and --api-key are required');
@@ -221,6 +222,7 @@ async function cmdProfileAdd(args: string[]): Promise<void> {
     sonnetModel: getArg('--sonnet-model'),
     haikuModel: getArg('--haiku-model'),
     protocol,
+    proxyChatCompletionsPath: proxyChatCompletionsPath || undefined,
     createdAt: new Date().toISOString(),
   };
 
@@ -236,6 +238,7 @@ async function cmdProfileAdd(args: string[]): Promise<void> {
   if (profile.opusModel) console.log(`    Opus: ${profile.opusModel}`);
   if (profile.sonnetModel) console.log(`    Sonnet: ${profile.sonnetModel}`);
   if (profile.haikuModel) console.log(`    Haiku: ${profile.haikuModel}`);
+  if (profile.proxyChatCompletionsPath) console.log(`    Proxy chat path: ${profile.proxyChatCompletionsPath}`);
 }
 
 async function cmdProfileList(): Promise<void> {
@@ -257,6 +260,7 @@ async function cmdProfileList(): Promise<void> {
     if (p.opusModel) console.log(`    Opus: ${p.opusModel}`);
     if (p.sonnetModel) console.log(`    Sonnet: ${p.sonnetModel}`);
     if (p.haikuModel) console.log(`    Haiku: ${p.haikuModel}`);
+    if (p.proxyChatCompletionsPath) console.log(`    Proxy chat path: ${p.proxyChatCompletionsPath}`);
     console.log();
   }
 }

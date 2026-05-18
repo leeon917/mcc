@@ -18,7 +18,7 @@
     "lib"
   ],
   "scripts": {
-    "build": "tsc && node -e \"const fs=require('fs');const p='dist/mcc.js';const c=fs.readFileSync(p,'utf8');fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c);\"",
+    "build": "tsc && node -e \"const fs=require('fs');const p='dist/mcc.js';const c=fs.readFileSync(p,'utf8');if(!c.startsWith('#!')){fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c);}\"",
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "dev": "node dist/mcc.js",

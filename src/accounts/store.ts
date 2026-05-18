@@ -32,6 +32,7 @@ export interface Profile {
   sonnetModel?: string;     // Tier 2 (Sonnet)
   haikuModel?: string;      // Tier 3 (Haiku / small-fast)
   protocol?: 'anthropic' | 'openai';  // 'anthropic' = direct, 'openai' = needs translation proxy
+  proxyChatCompletionsPath?: string;  // Override default /v1/chat/completions (e.g. '/chat/completions' for BigModel)
   createdAt: string;
   lastUsedAt?: string;
 }

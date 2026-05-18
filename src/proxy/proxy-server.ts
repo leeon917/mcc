@@ -30,6 +30,7 @@ export interface ProxyServerOptions {
   baseUrl: string;
   apiKey: string;
   model?: string;
+  chatCompletionsPath?: string; // e.g. '/chat/completions' for BigModel (defaults to /v1/chat/completions)
 }
 
 // --- HTTP Helpers (from CCS http-helpers.js) ---
@@ -233,7 +234,7 @@ async function handleMessages(
   try {
     const rawBody = await readJsonBody(req);
     const upstreamBody = buildUpstreamRequest(rawBody, options);
-    const upstreamUrl = resolveOpenAIChatCompletionsUrl(options.baseUrl);
+    const upstreamUrl = resolveOpenAIChatCompletionsUrl(options.baseUrl, options.chatCompletionsPath);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

@@ -88,6 +88,7 @@ export async function startProxy(
   baseUrl: string,
   apiKey: string,
   model?: string,
+  proxyChatCompletionsPath?: string,
 ): Promise<ProxyStartResult> {
   // Check if already running
   const existingSession = readProxySession(profileName);
@@ -126,6 +127,7 @@ export async function startProxy(
     '--api-key', apiKey,
     '--auth-token', authToken,
     ...(model ? ['--model', model] : []),
+    ...(proxyChatCompletionsPath ? ['--proxy-chat-completions-path', proxyChatCompletionsPath] : []),
   ], {
     detached: true,
     stdio: 'ignore',

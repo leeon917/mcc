@@ -95,7 +95,7 @@ async function main() {
   // POST /api/profiles
   app.post('/api/profiles', async (req, res) => {
     try {
-      const { name, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol } = req.body as {
+      const { name, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
         name: string;
         baseUrl: string;
         apiKey: string;
@@ -104,12 +104,13 @@ async function main() {
         sonnetModel?: string;
         haikuModel?: string;
         protocol?: 'anthropic' | 'openai';
+        proxyChatCompletionsPath?: string;
       };
       if (!name || !baseUrl || !apiKey || !model) {
         res.status(400).json({ error: 'Missing required fields' });
         return;
       }
-      const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, protocol: protocol || 'anthropic', createdAt: new Date().toISOString() };
+      const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, protocol: protocol || 'anthropic', proxyChatCompletionsPath: proxyChatCompletionsPath || undefined, createdAt: new Date().toISOString() };
       await saveProfile(profile, apiKey);
       console.log(`[i] Profile created: ${name} (model: ${model}, protocol: ${protocol || 'anthropic'})`);
       res.json({ ok: true });
@@ -121,7 +122,7 @@ async function main() {
   // PUT /api/profiles/:name — update profile
   app.put('/api/profiles/:name', async (req, res) => {
     try {
-      const { baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol } = req.body as {
+      const { baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
         baseUrl?: string;
         apiKey?: string;
         model?: string;
@@ -129,6 +130,7 @@ async function main() {
         sonnetModel?: string;
         haikuModel?: string;
         protocol?: 'anthropic' | 'openai';
+        proxyChatCompletionsPath?: string;
       };
       const profileName = req.params.name;
       const getProfileApiKey = await importModule<(name: string) => string | undefined>(
@@ -150,6 +152,7 @@ async function main() {
         sonnetModel: sonnetModel !== undefined ? (sonnetModel || undefined) : existing.sonnetModel,
         haikuModel: haikuModel !== undefined ? (haikuModel || undefined) : existing.haikuModel,
         protocol: protocol ?? existing.protocol,
+        proxyChatCompletionsPath: proxyChatCompletionsPath !== undefined ? (proxyChatCompletionsPath || undefined) : existing.proxyChatCompletionsPath,
       };
       // Only update API key if a new one is provided
       await saveProfile(updated, apiKey ?? existingKey ?? '');

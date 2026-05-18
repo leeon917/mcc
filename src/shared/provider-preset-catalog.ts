@@ -23,6 +23,7 @@ export const PROVIDER_PRESET_IDS = [
   'qwen',
   'ollama-cloud',
   'novita',
+  'bigmodel',
 ] as const;
 
 export type ProviderPresetId = (typeof PROVIDER_PRESET_IDS)[number];
@@ -43,6 +44,8 @@ export interface ProviderPresetDefinition {
   extraEnv?: Record<string, string>;
   /** Enable always thinking mode. */
   alwaysThinkingEnabled?: boolean;
+  /** Override default /v1/chat/completions proxy path (e.g. '/chat/completions' for BigModel) */
+  proxyChatCompletionsPath?: string;
   /** UI metadata */
   badge?: string;
   featured?: boolean;
@@ -265,6 +268,21 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     badge: 'Anthropic-compatible',
     icon: '/icons/novita.svg',
+  },
+  {
+    id: 'bigmodel',
+    name: 'BigModel',
+    description: '智谱 AI - GLM 系列模型 (OpenAI 兼容 API)',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultProfileName: 'bigmodel',
+    defaultModel: 'glm-5',
+    apiKeyPlaceholder: 'YOUR_BIGMODEL_API_KEY',
+    apiKeyHint: 'Get your API key at bigmodel.cn',
+    category: 'alternative',
+    requiresApiKey: true,
+    proxyChatCompletionsPath: '/chat/completions',
+    badge: '智谱AI',
+    icon: '/icons/bigmodel.svg',
   },
 ];
 

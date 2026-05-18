@@ -1,6 +1,6 @@
 {
   "name": "@hileeon/mcc",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "My Cloud Code - Multi-provider account and model switching for Claude Code",
   "license": "MIT",
   "author": "Zhang Chicheng",

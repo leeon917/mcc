@@ -435,6 +435,33 @@ function transformMessages(messagesValue: unknown): OpenAIMessage[] {
   messagesValue.forEach((message, messageIndex) => {
     const parsedMessage = assertObject(message, `messages[${messageIndex}]`) as AnthropicMessage;
     const role = parsedMessage.role;
+    const content = parsedMessage.content;
+    if (role === 'system') {
+      // System messages: pass through as-is for OpenAI compatibility.
+      // String content is the common case (e.g. Claude Code system prompt).
+      if (typeof content === 'string') {
+        translatedMessages.push({ role: 'system', content });
+        return;
+      }
+      if (Array.isArray(content)) {
+        // Extract text from content blocks (skip thinking/image/tool_result).
+        const textParts: string[] = [];
+        for (const block of content) {
+          const b = block as AnthropicContentBlock;
+          if (b.type === 'text') {
+            textParts.push(typeof b.text === 'string' ? b.text : '');
+          }
+          // Skip thinking, redacted_thinking, image, tool_result blocks.
+        }
+        if (textParts.length > 0) {
+          translatedMessages.push({ role: 'system', content: textParts.join('') });
+        }
+        return;
+      }
+      // Empty or invalid system content — skip.
+      return;
+    }
+
     if (role !== 'user' && role !== 'assistant') {
       throw new Error(`messages[${messageIndex}].role must be "user" or "assistant"`);
     }
@@ -445,7 +472,6 @@ function transformMessages(messagesValue: unknown): OpenAIMessage[] {
       );
     }
 
-    const content = parsedMessage.content;
     if (typeof content === 'string') {
       if (pendingToolUseIds && pendingToolUseIds.size > 0) {
         throw new Error(

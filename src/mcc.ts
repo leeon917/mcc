@@ -38,7 +38,7 @@ import { startProxy } from './proxy/proxy-daemon';
 import { log, init, makeSessionId, isDebugEnabled } from './shared/logger';
 import { readMcpConfig, getEnabledWebSearchProviders, getActiveImageAnalysisProvider } from './mcp/mcp-config';
 
-const PKG_VERSION = '0.1.5';
+const PKG_VERSION = '0.1.6';
 
 const instanceMgr = new MCCInstanceManager();
 

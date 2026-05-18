@@ -29,7 +29,7 @@ import {
 import { MCCInstanceManager } from './accounts/instance-manager';
 
 const PORT = 3000;
-const DIST_DIR = path.join(__dirname, '..', 'ui', 'dist');
+const DIST_DIR = path.join(__dirname, '..', 'dist', 'ui');
 
 async function importModule<T>(modulePath: string, fn: string): Promise<T> {
   const mod = await import(modulePath);

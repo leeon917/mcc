@@ -33,6 +33,7 @@ export interface ProxySession {
   authToken: string;
   baseUrl: string;
   startedAt: string;
+  proxyChatCompletionsPath?: string;
 }
 
 function ensureProxyDir(): void {

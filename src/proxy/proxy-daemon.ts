@@ -93,7 +93,14 @@ export async function startProxy(
   // Check if already running
   const existingSession = readProxySession(profileName);
   if (existingSession && await isProxyRunning(existingSession.port)) {
-    return { port: existingSession.port, authToken: existingSession.authToken };
+    // If the caller provided a different proxyChatCompletionsPath, the existing
+    // proxy is incompatible — stop it and restart with the new path.
+    const existingPath = existingSession.proxyChatCompletionsPath;
+    if (proxyChatCompletionsPath && proxyChatCompletionsPath !== existingPath) {
+      await stopProxy(profileName);
+    } else {
+      return { port: existingSession.port, authToken: existingSession.authToken };
+    }
   }
 
   // Clean up stale state
@@ -148,6 +155,7 @@ export async function startProxy(
     host: '127.0.0.1',
     authToken,
     baseUrl,
+    proxyChatCompletionsPath,
     startedAt: new Date().toISOString(),
   };
   writeProxySession(session);

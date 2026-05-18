@@ -4,6 +4,7 @@
   "description": "My Cloud Code - Multi-provider account and model switching for Claude Code",
   "license": "MIT",
   "author": "Zhang Chicheng",
+  "repository": "https://github.com/leeon917/mcc",
   "main": "dist/mcc.js",
   "types": "dist/mcc.d.ts",
   "bin": {

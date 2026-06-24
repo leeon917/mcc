@@ -56,14 +56,24 @@ export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDi
     CLAUDE_CONFIG_DIR: claudeConfigDir,
   };
 
-  // Thinking intensity. For anthropic-protocol providers this is the only knob
-  // we can set client-side: CLAUDE_CODE_EFFORT_LEVEL drives output_config.effort
-  // (honored by DeepSeek; a harmless no-op for binary-thinking providers like
-  // Kimi/MiMo). For openai-protocol the proxy injects provider-specific params
-  // instead, but exporting it here is still harmless. Undefined ⇒ 'high'.
+  // Thinking, driven by Claude Code itself so the user's /effort + Tab toggle
+  // are the source of truth. We seed two env vars so thinking is ON by default
+  // regardless of how Claude Code treats a third-party model id:
+  //   - CLAUDE_CODE_EFFORT_LEVEL → adaptive-thinking path (modern models):
+  //     sends thinking{type:adaptive} + output_config.effort.
+  //   - MAX_THINKING_TOKENS → legacy path: sends thinking{type:enabled,budget}.
+  // Both matter because some upstreams MANDATE thinking (e.g. kimi-k2.7-code
+  // 400s on a request with no thinking) — seeding both guarantees Claude Code
+  // emits a thinking field those models accept. For openai-protocol the proxy
+  // re-reads whatever Claude Code sent and translates it per provider.
+  // Undefined ⇒ 'high'. 'off' leaves thinking to the model/user default.
   const effort = profile.reasoningEffort ?? 'high';
   if (effort !== 'off') {
     env.CLAUDE_CODE_EFFORT_LEVEL = effort;
+    const budgetByEffort: Record<string, number> = {
+      low: 4096, medium: 8192, high: 16384, max: 32768,
+    };
+    env.MAX_THINKING_TOKENS = String(budgetByEffort[effort] ?? 16384);
   }
 
   // MCP: WebSearch

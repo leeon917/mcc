@@ -149,6 +149,44 @@ function buildReasoningInjection(baseUrl: string, effort: string): Record<string
   return { reasoning_effort: clamped };
 }
 
+const EFFORT_VALUES = new Set(['low', 'medium', 'high', 'max']);
+
+/** Normalize an effort string Claude Code may send (low/medium/high/max/xhigh/auto). */
+function normEffort(e: unknown): string | undefined {
+  if (typeof e !== 'string') return undefined;
+  const v = e.trim().toLowerCase();
+  if (v === 'xhigh') return 'max';
+  return EFFORT_VALUES.has(v) ? v : undefined; // 'auto' / unknown ⇒ fall back
+}
+
+/** Map a legacy thinking budget_tokens to a coarse effort bucket. */
+function budgetToEffort(b: number): string {
+  if (b >= 24000) return 'max';
+  if (b >= 8000) return 'high';
+  if (b >= 2000) return 'medium';
+  return 'low';
+}
+
+/**
+ * Resolve the effort to use, treating Claude Code's own thinking signal as the
+ * source of truth (so the user's /effort + Tab toggle map straight through):
+ *   - thinking disabled            → 'off'
+ *   - thinking adaptive            → output_config.effort (Claude Code's dial)
+ *   - thinking enabled w/ budget   → bucketed from budget_tokens
+ *   - nothing usable from client   → the profile default (keeps thinking on)
+ */
+function resolveEffort(rawBody: Record<string, unknown>, profileDefault: string): string {
+  const thinking = rawBody.thinking as { type?: string; budget_tokens?: number } | undefined;
+  const oc = rawBody.output_config as { effort?: unknown } | undefined;
+  if (thinking?.type === 'disabled') return 'off';
+  if (thinking?.type === 'enabled' && typeof thinking.budget_tokens === 'number') {
+    return budgetToEffort(thinking.budget_tokens);
+  }
+  // adaptive, enabled-without-budget, or no thinking field: prefer the effort
+  // Claude Code attached, else the profile's configured default.
+  return normEffort(oc?.effort) ?? profileDefault;
+}
+
 function buildUpstreamRequest(rawBody: Record<string, unknown>, options: ProxyServerOptions): string {
   const transformer = new ProxyRequestTransformer();
   const transformed = transformer.transform(rawBody) as Record<string, unknown>;
@@ -156,10 +194,9 @@ function buildUpstreamRequest(rawBody: Record<string, unknown>, options: ProxySe
   // the transformer's coarse reasoning_effort — we re-inject per dialect below.
   const { metadata: _metadata, reasoning_effort: _droppedEffort, ...rest } = transformed;
 
-  // Thinking ON by default at the profile's intensity, unless the client
-  // explicitly disabled it for this request.
-  const clientThinking = rawBody.thinking as { type?: string } | undefined;
-  const effort = clientThinking?.type === 'disabled' ? 'off' : (options.reasoningEffort || 'high');
+  // Claude Code drives the thinking intensity; the profile's reasoningEffort is
+  // only the fallback when the client sends no usable signal.
+  const effort = resolveEffort(rawBody, options.reasoningEffort || 'high');
   const reasoning = buildReasoningInjection(options.baseUrl, effort);
 
   // GLM only accepts tool_choice "auto"; clamp anything else to avoid a 400.

@@ -138,21 +138,18 @@ async function testAnthropicKey(
 
   const start = Date.now();
   try {
-    const resp = await fetch(`${base}/v1/messages`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model,
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }],
-      }),
-    });
+    // First ping without thinking. Some models (e.g. kimi-k2.7-code) MANDATE
+    // thinking and 400 with "only type=enabled is allowed" — retry those with
+    // adaptive thinking enabled (which Claude Code itself sends at runtime).
+    let resp = await pingMessages(base, headers, model, false);
+    if (!resp.ok && resp.status === 400 && /thinking/i.test(resp.errText)) {
+      resp = await pingMessages(base, headers, model, true);
+    }
     const latencyMs = Date.now() - start;
     if (resp.ok) {
       return { ok: true, latencyMs, models };
     }
-    const errText = await resp.text().catch(() => '');
-    const snippet = errText ? ` — ${errText.slice(0, 200)}` : '';
+    const snippet = resp.errText ? ` — ${resp.errText.slice(0, 200)}` : '';
     let hint = '';
     if (resp.status === 401 || resp.status === 403) hint = '（API Key 无效或无权限）';
     else if (resp.status === 402) hint = '（Key 有效，但账户余额不足 / 需充值）';
@@ -166,6 +163,29 @@ async function testAnthropicKey(
   } catch (e) {
     return { ok: false, latencyMs: Date.now() - start, models, error: (e as Error).message };
   }
+}
+
+/** Single /v1/messages ping. `withThinking` sends adaptive thinking for models
+ *  that reject requests without it. */
+async function pingMessages(
+  base: string,
+  headers: Record<string, string>,
+  model: string,
+  withThinking: boolean
+): Promise<{ ok: boolean; status: number; statusText: string; errText: string }> {
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: withThinking ? 64 : 1,
+    messages: [{ role: 'user', content: 'hi' }],
+  };
+  if (withThinking) body.thinking = { type: 'adaptive' };
+  const resp = await fetch(`${base}/v1/messages`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const errText = resp.ok ? '' : await resp.text().catch(() => '');
+  return { ok: resp.ok, status: resp.status, statusText: resp.statusText, errText };
 }
 
 /** Try GET {base}/v1/models; return [] on any failure (many gateways 404). */

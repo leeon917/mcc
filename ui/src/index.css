@@ -1,6 +1,4 @@
-/* 三层 token 必须在 Tailwind 之前 import：让 primitive → semantic →
-   components 的级联先就位，下面的 shadcn HSL 桥才能引用它们。
-   分层规范见 project-template/build.md §11.2。 */
+/* ── Cupertino Arcade · 三层 token ────────────────────────────────────── */
 @import './design/tokens/primitive.css';
 @import './design/tokens/semantic.css';
 @import './design/tokens/components.css';
@@ -9,94 +7,488 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn / Tailwind 用的是 HSL 三元组（空格分隔），跟我们三层 token 的
-   命名空间是两条路。这里把 shadcn 契约保留，但视觉口径以 semantic 层
-   为准——未来切主题只动 semantic.css，HSL 这一段不用碰。
-
-   注意：HSL 这层是「Tailwind 适配层」，不是新组件该用的层。新组件请用
-   var(--card-*)/var(--button-*) 这类 components 层 token，或直接用语
-   义类（bg-background / text-foreground）。 */
+/* shadcn / Tailwind 用的是 HSL 三元组（空格分隔），把我们的 token 翻译过去，
+   现有 shadcn 组件无需重写也能跟上新视觉。 */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --background: 40 53% 92%;          /* paper-100 */
+    --foreground: 240 10% 9%;          /* ink-900 */
+    --card: 38 56% 96%;
+    --card-foreground: 240 10% 9%;
+    --popover: 38 56% 96%;
+    --popover-foreground: 240 10% 9%;
+    --primary: 23 100% 62%;            /* tangerine */
+    --primary-foreground: 240 10% 9%;
+    --secondary: 40 39% 82%;
+    --secondary-foreground: 240 10% 9%;
+    --muted: 40 39% 88%;
+    --muted-foreground: 36 5% 36%;
+    --accent: 40 39% 86%;
+    --accent-foreground: 240 10% 9%;
+    --destructive: 350 100% 66%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 38 26% 78%;
+    --input: 38 26% 78%;
+    --ring: 188 70% 51%;
+    --radius: 0.875rem;
   }
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
   * {
     @apply border-border;
   }
   body {
     background: var(--app-bg);
     color: var(--app-text);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Wallpapered desk: pixel grid + soft radial color washes — gives the cream
+     paper depth without distracting from cards. */
+  body {
+    background-color: var(--paper-100);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 12% 8%, rgba(255, 138, 61, 0.16), transparent 60%),
+      radial-gradient(ellipse 70% 60% at 92% 18%, rgba(43, 191, 217, 0.16), transparent 60%),
+      radial-gradient(ellipse 65% 55% at 80% 95%, rgba(168, 117, 255, 0.12), transparent 60%),
+      linear-gradient(var(--pixel-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--pixel-grid) 1px, transparent 1px);
+    background-size: auto, auto, auto, 20px 20px, 20px 20px;
+    background-position: 0 0, 0 0, 0 0, -1px -1px, -1px -1px;
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: var(--arcade-sunshine);
+    color: var(--ink-900);
   }
 }
 
-/* ── 组件级语义类（用 components 层 token 实现，避免在 JSX 里写裸色） ── */
+/* ── 组件语义类 ─────────────────────────────────────────────────────────── */
 @layer components {
-  .badge-default {
+  /* ===== Font helpers ===== */
+  .font-pixel {
+    font-family: var(--font-pixel);
+    letter-spacing: 0.02em;
+  }
+  .font-rounded {
+    font-family: var(--font-rounded);
+    letter-spacing: -0.01em;
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  /* ===== Cards ===== */
+  .arcade-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow-raised);
+    transition:
+      box-shadow var(--dur-base) var(--ease-out-quart),
+      transform var(--dur-base) var(--ease-out-quart);
+  }
+  .arcade-card-soft {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border-soft);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+  }
+  .arcade-card-raised {
+    background: var(--card-bg-raised);
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow-raised);
+  }
+
+  /* Press: drop the offset shadow, nudge the card down/right by the same delta */
+  .arcade-card-press:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-pixel-3);
+  }
+  .arcade-card-press:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 var(--ink-900);
+  }
+
+  /* ===== Buttons ===== */
+  .arcade-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--button-padding);
+    font-family: var(--font-rounded);
+    font-weight: var(--weight-semibold);
+    font-size: var(--font-sm);
+    color: var(--button-text);
+    background: var(--button-bg);
+    border: 1.5px solid var(--button-border);
+    border-radius: var(--button-radius);
+    box-shadow: var(--button-shadow);
+    cursor: pointer;
+    transition:
+      transform var(--dur-fast) var(--ease-out-quart),
+      box-shadow var(--dur-fast) var(--ease-out-quart),
+      background var(--dur-fast) var(--ease-out-quart);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .arcade-btn:hover {
+    background: var(--button-bg-hover);
+    transform: translate(-1px, -1px);
+    box-shadow: var(--button-shadow-hover);
+  }
+  .arcade-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 var(--ink-900);
+  }
+  .arcade-btn:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+  .arcade-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: var(--button-shadow);
+  }
+
+  .arcade-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--button-ghost-text);
+  }
+  .arcade-btn-ghost:hover {
+    background: var(--button-ghost-hover-bg);
+    transform: none;
+    box-shadow: none;
+  }
+  .arcade-btn-ghost:active {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .arcade-btn-outline {
+    background: var(--color-bg-elevated);
+    color: var(--ink-900);
+  }
+  .arcade-btn-outline:hover {
+    background: var(--paper-100);
+  }
+
+  .arcade-btn-danger {
+    background: var(--button-danger-bg);
+    color: var(--button-danger-text);
+  }
+  .arcade-btn-danger:hover {
+    background: var(--button-danger-bg-hover);
+  }
+
+  .arcade-btn-sm {
+    font-size: var(--font-xs);
+    padding: var(--space-1) var(--space-3);
+  }
+
+  /* ===== Pixel chips / badges ===== */
+  .pixel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 2px 8px;
+    font-family: var(--font-pixel);
+    font-size: var(--font-2xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     background: var(--badge-bg);
     color: var(--badge-text);
-    border-radius: var(--badge-radius);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    line-height: 1.4;
   }
-
-  .badge-current {
+  .pixel-chip-success {
     background: var(--badge-success-bg);
     color: var(--badge-success-text);
-    box-shadow: inset 0 0 0 1px var(--badge-success-ring);
-    border-radius: var(--radius-pill);
+    border-color: var(--color-success);
+  }
+  .pixel-chip-warning {
+    background: var(--badge-warning-bg);
+    color: var(--badge-warning-text);
+    border-color: var(--arcade-sunshine);
+  }
+  .pixel-chip-info {
+    background: var(--badge-info-bg);
+    color: var(--badge-info-text);
+    border-color: var(--arcade-lagoon);
+  }
+  .pixel-chip-special {
+    background: var(--badge-special-bg);
+    color: var(--badge-special-text);
+    border-color: var(--arcade-lilac);
+  }
+  .pixel-chip-tangerine {
+    background: var(--arcade-tangerine-soft);
+    color: var(--arcade-tangerine-ink);
+    border-color: var(--arcade-tangerine);
+  }
+  .pixel-chip-hibiscus {
+    background: var(--arcade-hibiscus-soft);
+    color: var(--arcade-hibiscus-ink);
+    border-color: var(--arcade-hibiscus);
   }
 
+  /* ===== Inputs ===== */
+  .arcade-input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1.5px solid var(--input-border);
+    border-radius: var(--input-radius);
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: var(--font-sm);
+    color: var(--input-text);
+    transition: border-color var(--dur-fast) var(--ease-out-quart),
+      box-shadow var(--dur-fast) var(--ease-out-quart);
+  }
+  .arcade-input::placeholder {
+    color: var(--input-placeholder);
+  }
+  .arcade-input:focus,
+  .arcade-input:focus-visible {
+    outline: none;
+    border-color: var(--input-border-strong);
+    box-shadow: var(--shadow-pixel-1);
+  }
+  .arcade-input:disabled {
+    background: var(--paper-200);
+    color: var(--color-text-muted);
+  }
+
+  /* ===== Status indicator ===== */
   .status-online {
     color: var(--status-online-text);
   }
   .status-online-dot {
     background: var(--status-online-dot);
+    box-shadow: 0 0 0 3px rgba(95, 184, 79, 0.2);
+    animation: pulse-online 2s ease-in-out infinite;
   }
   .status-offline {
     color: var(--status-offline-text);
   }
   .status-offline-dot {
     background: var(--status-offline-dot);
+    box-shadow: 0 0 0 3px rgba(255, 84, 112, 0.2);
+  }
+  @keyframes pulse-online {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(95, 184, 79, 0.18); }
+    50%      { box-shadow: 0 0 0 6px rgba(95, 184, 79, 0.06); }
   }
 
+  /* ===== Banners ===== */
   .banner-warning {
     background: var(--banner-warning-bg);
-    border: 1px solid var(--banner-warning-border);
+    border: 1.5px solid var(--banner-warning-border);
     color: var(--banner-warning-text);
+    border-radius: var(--radius-md);
   }
   .banner-success {
     background: var(--banner-success-bg);
-    border: 1px solid var(--banner-success-border);
+    border: 1.5px solid var(--banner-success-border);
     color: var(--banner-success-text);
+    border-radius: var(--radius-md);
   }
   .banner-error {
     background: var(--banner-error-bg);
-    border: 1px solid var(--banner-error-border);
+    border: 1.5px solid var(--banner-error-border);
     color: var(--banner-error-text);
+    border-radius: var(--radius-md);
+  }
+  .banner-info {
+    background: var(--banner-info-bg);
+    border: 1.5px solid var(--banner-info-border);
+    color: var(--banner-info-text);
+    border-radius: var(--radius-md);
   }
 
-  .code-faint {
-    color: var(--code-text-faint);
-  }
+  /* ===== Code / mono ===== */
   .code-mono {
+    font-family: var(--font-mono);
     color: var(--code-text);
   }
+  .code-faint {
+    font-family: var(--font-mono);
+    color: var(--code-text-faint);
+  }
+  .code-inline {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* ===== Tabs ===== */
+  .arcade-tabs-list {
+    display: inline-flex;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background: var(--color-bg-surface-muted);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-inset);
+  }
+  .arcade-tabs-trigger {
+    padding: var(--space-2) var(--space-4);
+    font-family: var(--font-rounded);
+    font-weight: var(--weight-semibold);
+    font-size: var(--font-sm);
+    color: var(--tabs-trigger-text);
+    border-radius: var(--radius-lg);
+    transition: all var(--dur-base) var(--ease-out-quart);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .arcade-tabs-trigger[data-state='active'] {
+    background: var(--tabs-trigger-active-bg);
+    color: var(--tabs-trigger-active-text);
+    box-shadow: var(--shadow-soft-1);
+  }
+  .arcade-tabs-trigger:hover {
+    color: var(--tabs-trigger-active-text);
+  }
+
+  /* ===== Pixel-perfect SVG containers ===== */
+  .pixel-tile,
+  .pixel-tile svg {
+    shape-rendering: crispEdges;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+
+  .provider-halo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-lg);
+    border: 1.5px solid var(--ink-900);
+    background: var(--paper-50);
+    box-shadow: var(--shadow-pixel-1);
+    flex-shrink: 0;
+  }
+  .provider-halo-sm {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+  }
+  .provider-halo-xs {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border-width: 1px;
+    box-shadow: 1px 1px 0 0 var(--ink-900);
+  }
+
+  /* ===== Sheet / Modal ===== */
+  .sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--sheet-overlay);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 40;
+    animation: fade-in var(--dur-base) var(--ease-out-quart);
+  }
+  .sheet-panel {
+    position: fixed;
+    z-index: 50;
+    background: var(--sheet-bg);
+    border: 1.5px solid var(--ink-900);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-pixel-3), var(--shadow-soft-3);
+  }
+  .sheet-panel-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 540px);
+    max-height: 88vh;
+    overflow-y: auto;
+    animation: sheet-pop var(--dur-base) var(--ease-spring);
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes sheet-pop {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  /* CRT scanline overlay */
+  .crt-scanline {
+    position: relative;
+    overflow: hidden;
+  }
+  .crt-scanline::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      0deg,
+      rgba(22, 22, 26, 0.05) 0,
+      rgba(22, 22, 26, 0.05) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+    opacity: 0.4;
+  }
+
+  /* Section heading */
+  .section-kicker {
+    font-family: var(--font-pixel);
+    font-size: var(--font-2xs);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .section-title {
+    font-family: var(--font-rounded);
+    font-weight: var(--weight-bold);
+    font-size: var(--font-2xl);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
+  }
+  .section-sub {
+    font-family: var(--font-sans);
+    font-size: var(--font-sm);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+  }
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  shape-rendering: crispEdges;
 }

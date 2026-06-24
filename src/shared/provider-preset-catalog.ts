@@ -50,7 +50,6 @@ export interface ProviderPresetDefinition {
   /** UI metadata */
   badge?: string;
   featured?: boolean;
-  icon?: string;
 }
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
@@ -83,7 +82,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     badge: '349+ models',
     featured: true,
-    icon: '/icons/openrouter.svg',
   },
   {
     id: 'alibaba-coding-plan',
@@ -98,7 +96,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     badge: 'Coding Plan',
     featured: true,
-    icon: '/assets/providers/alibabacloud-color.svg',
   },
   {
     id: 'ollama',
@@ -113,7 +110,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: false,
     badge: 'Local',
     featured: true,
-    icon: '/icons/ollama.svg',
   },
   {
     id: 'llamacpp',
@@ -128,7 +124,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: false,
     badge: 'Local',
     featured: true,
-    icon: '/assets/providers/llama-cpp.svg',
   },
   {
     id: 'anthropic',
@@ -143,7 +138,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     badge: 'Direct',
     featured: true,
-    icon: '/assets/providers/claude.svg',
   },
   {
     id: 'huggingface',
@@ -171,7 +165,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: 'Z.AI',
-    icon: '/icons/zai.svg',
   },
   {
     id: 'km',
@@ -186,7 +179,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     alwaysThinkingEnabled: true,
     badge: 'Reasoning',
-    icon: '/icons/kimi.svg',
   },
   {
     id: 'foundry',
@@ -200,7 +192,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: 'Azure',
-    icon: '/icons/azure.svg',
   },
   {
     id: 'mm',
@@ -214,7 +205,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: '1M context',
-    icon: '/icons/minimax.svg',
   },
   {
     id: 'deepseek',
@@ -228,7 +218,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: 'Vision',
-    icon: '/icons/deepseek.svg',
   },
   {
     id: 'qwen',
@@ -243,7 +232,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     proxyChatCompletionsPath: '/chat/completions',
     badge: 'Alibaba',
-    icon: '/assets/providers/qwen-color.svg',
   },
   {
     id: 'xiaomi-mimo',
@@ -257,7 +245,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: 'MiMo V2',
-    icon: '/icons/xiaomi.svg',
   },
   {
     id: 'ollama-cloud',
@@ -271,7 +258,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: 'Cloud',
-    icon: '/icons/ollama.svg',
   },
   {
     id: 'novita',
@@ -285,7 +271,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     category: 'alternative',
     requiresApiKey: true,
     badge: 'Anthropic-compatible',
-    icon: '/icons/novita.svg',
   },
   {
     id: 'bigmodel',
@@ -300,7 +285,6 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     requiresApiKey: true,
     proxyChatCompletionsPath: '/chat/completions',
     badge: '智谱AI',
-    icon: '/icons/bigmodel.svg',
   },
 ];
 

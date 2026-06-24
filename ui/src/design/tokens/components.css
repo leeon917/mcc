@@ -1,73 +1,105 @@
 /* 第 3 层 · 组件级：贴着具体组件命名（--button-* / --card-*…），
-   值一律引用第 2 层语义。组件 CSS 只认这一层，永远不知道也不该知道
-   最终是哪个 hex。新增组件时在此加一组变量。
-
-   参考 project-template/build.md §11.2。 */
+   值一律引用第 2 层语义。组件 CSS 只认这一层。 */
 :root {
   /* App shell */
   --app-bg: var(--color-bg-base);
   --app-text: var(--color-text-primary);
 
-  /* Card / Panel */
+  /* Card / Panel — 软纸面 + 1px 墨边 + 像素硬阴影偏移 */
   --card-bg: var(--color-bg-surface);
-  --card-border: var(--color-border);
+  --card-bg-raised: var(--color-bg-elevated);
+  --card-border: var(--color-border-strong);
+  --card-border-soft: var(--color-border);
   --card-text: var(--color-text-primary);
   --card-text-muted: var(--color-text-muted);
   --card-radius: var(--radius-card);
   --card-padding: var(--space-block);
+  --card-shadow: var(--shadow-soft-1);
+  --card-shadow-raised: var(--shadow-pixel-2);
+  --card-shadow-press: var(--shadow-pixel-1);
 
-  /* Button — primary */
+  /* Button — primary (arcade tangerine) */
   --button-bg: var(--color-accent);
   --button-bg-hover: var(--color-accent-hover);
   --button-text: var(--color-accent-foreground);
   --button-radius: var(--radius-control);
-  --button-padding: var(--space-inline) var(--space-block);
+  --button-padding: var(--space-2) var(--space-4);
+  --button-border: var(--ink-900);
+  --button-shadow: var(--shadow-pixel-1);
+  --button-shadow-hover: var(--shadow-pixel-2);
 
   /* Button — danger */
   --button-danger-bg: var(--color-danger);
   --button-danger-bg-hover: var(--color-danger-hover);
-  --button-danger-text: var(--color-accent-foreground);
+  --button-danger-text: var(--color-text-inverse);
+
+  /* Button — ghost / quiet */
+  --button-ghost-text: var(--color-text-secondary);
+  --button-ghost-hover-bg: var(--paper-200);
 
   /* Input */
-  --input-bg: var(--color-bg-surface);
-  --input-border: var(--color-border-strong);
+  --input-bg: var(--color-bg-elevated);
+  --input-border: var(--color-border);
+  --input-border-strong: var(--ink-900);
   --input-text: var(--color-text-primary);
   --input-placeholder: var(--color-text-faint);
   --input-radius: var(--radius-control);
+  --input-shadow: var(--shadow-inset);
   --input-focus-ring: var(--color-focus-ring);
 
-  /* Badge — default */
+  /* Badge */
   --badge-bg: var(--color-bg-surface-muted);
   --badge-text: var(--color-text-muted);
-  --badge-radius: var(--radius-sm);
+  --badge-radius: var(--radius-pill);
 
-  /* Badge — success ("default" profile) */
   --badge-success-bg: var(--color-success-soft);
   --badge-success-text: var(--color-success-on-soft);
-  --badge-success-ring: rgb(5 150 105 / 0.2);
+
+  --badge-warning-bg: var(--color-warning-soft);
+  --badge-warning-text: var(--color-warning-on-soft);
+
+  --badge-info-bg: var(--color-info-soft);
+  --badge-info-text: var(--color-info-on-soft);
+
+  --badge-special-bg: var(--color-special-soft);
+  --badge-special-text: var(--color-special-on-soft);
 
   /* Status dot */
   --status-online-text: var(--color-success-on-soft);
   --status-online-dot: var(--color-success-dot);
-  --status-offline-text: var(--color-danger-hover);
+  --status-offline-text: var(--color-danger-on-soft);
   --status-offline-dot: var(--color-danger);
 
-  /* Banner — unsaved (warning) */
+  /* Banner */
   --banner-warning-bg: var(--color-warning-soft);
   --banner-warning-border: var(--color-warning-border);
   --banner-warning-text: var(--color-warning-on-soft);
 
-  /* Banner — saved (success) */
   --banner-success-bg: var(--color-success-soft);
-  --banner-success-border: var(--emerald-400);
+  --banner-success-border: var(--color-success);
   --banner-success-text: var(--color-success-on-soft);
 
-  /* Banner — error */
   --banner-error-bg: var(--color-danger-soft);
-  --banner-error-border: var(--red-500);
+  --banner-error-border: var(--color-danger);
   --banner-error-text: var(--color-danger-on-soft);
+
+  --banner-info-bg: var(--color-info-soft);
+  --banner-info-border: var(--color-info);
+  --banner-info-text: var(--color-info-on-soft);
 
   /* Inline code / mono */
   --code-text: var(--color-text-mono);
   --code-text-faint: var(--color-text-faint);
+  --code-bg: var(--paper-200);
+
+  /* Tabs (arcade switch) */
+  --tabs-bg: transparent;
+  --tabs-trigger-text: var(--color-text-secondary);
+  --tabs-trigger-active-bg: var(--color-bg-elevated);
+  --tabs-trigger-active-text: var(--color-text-primary);
+  --tabs-trigger-active-border: var(--ink-900);
+
+  /* Sheet / modal */
+  --sheet-bg: var(--color-bg-elevated);
+  --sheet-overlay: var(--color-bg-overlay);
 }

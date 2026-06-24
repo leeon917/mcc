@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Ui } from '@/components/icons/Ui';
 import { ProfileList } from '@/components/ProfileList';
 import { ProfileForm, type ProfileFormPayload } from '@/components/ProfileForm';
 import { WebSearchPanel } from '@/components/WebSearchPanel';
 import { ImageAnalysisPanel } from '@/components/ImageAnalysisPanel';
 import { McpServerStatusPanel } from '@/components/McpServerStatusPanel';
 import { ExternalMcpPanel } from '@/components/ExternalMcpPanel';
+import { PresetGallery } from '@/components/PresetGallery';
 import {
   getProfiles,
   addProfile,
@@ -20,6 +22,7 @@ import {
   getMcpConfig,
   updateMcpConfig,
   getProviderPresets,
+  getProfilePresets,
   getExternalMcpServers,
   addExternalMcpServer,
   removeExternalMcpServer,
@@ -30,6 +33,7 @@ import {
   type ProviderPresets,
   type AllMcpServer,
   type ExternalMcpServer,
+  type ProfilePreset,
 } from '@/lib/api';
 
 export default function App() {
@@ -37,10 +41,12 @@ export default function App() {
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [allMcpServers, setAllMcpServers] = useState<AllMcpServer[]>([]);
   const [externalMcpServers, setExternalMcpServers] = useState<ExternalMcpServer[]>([]);
+  const [profilePresets, setProfilePresets] = useState<ProfilePreset[]>([]);
   const [currentProfile, setCurrentProfile] = useState<string>('');
   const [connected, setConnected] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'templates' | 'profiles' | 'mcp'>('templates');
 
   const [mcpConfig, setMcpConfig] = useState<McpConfig | null>(null);
   const [presets, setPresets] = useState<ProviderPresets | null>(null);
@@ -53,15 +59,17 @@ export default function App() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [profs, mcps, status, config, pres, allMcps, externalMcps] = await Promise.all([
-        getProfiles(),
-        getMcpServers(),
-        getStatus(),
-        getMcpConfig(),
-        getProviderPresets(),
-        getAllMcpServers(),
-        getExternalMcpServers(),
-      ]);
+      const [profs, mcps, status, config, pres, allMcps, externalMcps, profPres] =
+        await Promise.all([
+          getProfiles(),
+          getMcpServers(),
+          getStatus(),
+          getMcpConfig(),
+          getProviderPresets(),
+          getAllMcpServers(),
+          getExternalMcpServers(),
+          getProfilePresets(),
+        ]);
       setProfiles(profs);
       setMcpServers(mcps);
       setCurrentProfile(status.currentProfile || '');
@@ -69,20 +77,25 @@ export default function App() {
       setPresets(pres);
       setAllMcpServers(allMcps);
       setExternalMcpServers(externalMcps);
+      setProfilePresets(profPres);
       setMcpDirty(false);
       setError('');
+      // first run: if there are already profiles, jump to Profiles tab
+      if (profs.length > 0 && activeTab === 'templates' && loading) {
+        setActiveTab('profiles');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  // Poll connection status every 5s.
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
@@ -96,6 +109,8 @@ export default function App() {
       clearInterval(interval);
     };
   }, []);
+
+  const existingProfileNames = useMemo(() => profiles.map((p) => p.name), [profiles]);
 
   async function handleSubmitProfile(payload: ProfileFormPayload) {
     try {
@@ -126,6 +141,24 @@ export default function App() {
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save profile');
+    }
+  }
+
+  async function handleInstallPreset(args: {
+    name: string;
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+    protocol: 'anthropic' | 'openai';
+  }): Promise<boolean> {
+    try {
+      await addProfile(args);
+      await loadAll();
+      setActiveTab('profiles');
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to install preset');
+      return false;
     }
   }
 
@@ -244,53 +277,83 @@ export default function App() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center text-muted-foreground">
-        Loading...
-      </div>
-    );
+    return <BootSplash />;
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: 'var(--app-bg)' }}>
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">MCC Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              {currentProfile ? `Current profile: ${currentProfile}` : 'No profile selected'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ConnectionBadge connected={connected} />
-            <Button variant="outline" onClick={loadAll}>
-              Refresh
-            </Button>
-          </div>
-        </header>
+    <div className="min-h-screen pb-16">
+      <AppHeader
+        connected={connected}
+        currentProfile={currentProfile}
+        profileCount={profiles.length}
+        onRefresh={loadAll}
+      />
 
-        {error && <div className="banner-error mb-4 rounded-md p-3 text-sm">{error}</div>}
+      <main className="mx-auto max-w-6xl px-5 sm:px-8">
+        {error && (
+          <div className="banner-error mb-4 flex items-start gap-2 px-4 py-3 text-sm">
+            <Ui name="x" size={14} className="mt-0.5 flex-shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button
+              onClick={() => setError('')}
+              className="text-current opacity-70 transition-opacity hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              <Ui name="x" size={12} />
+            </button>
+          </div>
+        )}
 
-        <Tabs defaultValue="profiles">
-          <TabsList className="mb-4">
-            <TabsTrigger value="profiles">Profiles</TabsTrigger>
-            <TabsTrigger value="mcp">MCP</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="templates">
+                <Ui name="sparkle" size={14} />
+                Templates
+              </TabsTrigger>
+              <TabsTrigger value="profiles">
+                <Ui name="profile" size={14} />
+                Profiles
+                {profiles.length > 0 && (
+                  <span className="pixel-chip pixel-chip-tangerine ml-1">{profiles.length}</span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="mcp">
+                <Ui name="mcp" size={14} />
+                MCP
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="templates">
+            <PresetGallery
+              presets={profilePresets}
+              existingProfileNames={existingProfileNames}
+              onInstall={handleInstallPreset}
+            />
+          </TabsContent>
 
           <TabsContent value="profiles">
-            <div className="grid gap-4 md:grid-cols-2">
-              <ProfileList
-                profiles={profiles}
-                currentProfile={currentProfile}
-                onEdit={setEditing}
-                onSetDefault={handleSetDefault}
-                onDelete={handleDelete}
-              />
-              <ProfileForm
-                editingProfile={editing}
-                onSubmit={handleSubmitProfile}
-                onCancel={() => setEditing(null)}
-              />
+            <div className="grid gap-5 lg:grid-cols-5">
+              <div className="lg:col-span-3">
+                <ProfileList
+                  profiles={profiles}
+                  currentProfile={currentProfile}
+                  onEdit={(p) => {
+                    setEditing(p);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onSetDefault={handleSetDefault}
+                  onDelete={handleDelete}
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <ProfileForm
+                  editingProfile={editing}
+                  onSubmit={handleSubmitProfile}
+                  onCancel={() => setEditing(null)}
+                />
+              </div>
             </div>
           </TabsContent>
 
@@ -344,12 +407,88 @@ export default function App() {
                 currentProfile={currentProfile}
                 onAdd={handleAddExternalMcp}
                 onRemove={handleRemoveExternalMcp}
-                onToggle={(name, enabled, instance) => handleToggleMcp(name, enabled, instance)}
+                onToggle={(name, enabled, instance) =>
+                  handleToggleMcp(name, enabled, instance)
+                }
               />
             </div>
           </TabsContent>
         </Tabs>
+      </main>
+
+      <AppFooter />
+    </div>
+  );
+}
+
+/* ── Pieces ───────────────────────────────────────────────────────────── */
+
+function AppHeader({
+  connected,
+  currentProfile,
+  profileCount,
+  onRefresh,
+}: {
+  connected: boolean;
+  currentProfile: string;
+  profileCount: number;
+  onRefresh: () => void;
+}) {
+  return (
+    <header className="px-5 pt-6 pb-8 sm:px-8 sm:pt-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <ArcadeLogo />
+            <div>
+              <p className="font-pixel text-xs uppercase tracking-[0.22em] text-arcade-tangerine-ink">
+                ★ MCC · Multi-Cloud Console
+              </p>
+              <h1 className="font-rounded text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">
+                你的 Claude Code Provider 控制台
+              </h1>
+              <p className="mt-1 text-xs text-ink-400 sm:text-sm">
+                {profileCount === 0
+                  ? '从 Templates 挑一个 Provider 开始，30 秒就能跑起来。'
+                  : currentProfile
+                    ? `当前默认 · ${currentProfile} — 切换或新增都在这里。`
+                    : '当前没有设默认 profile。'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <ConnectionBadge connected={connected} />
+            <Button size="sm" variant="outline" onClick={onRefresh} aria-label="Refresh">
+              <Ui name="refresh" size={14} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </div>
+        </div>
       </div>
+    </header>
+  );
+}
+
+function ArcadeLogo() {
+  // Compact pixel-art MCC tile — three stacked block letters in arcade colors.
+  return (
+    <div className="provider-halo crt-scanline" aria-label="MCC logo">
+      <svg viewBox="0 0 32 32" width={32} height={32} shapeRendering="crispEdges">
+        <rect x="3" y="6" width="2" height="20" fill="var(--arcade-tangerine)" />
+        <rect x="5" y="6" width="2" height="2" fill="var(--arcade-tangerine)" />
+        <rect x="9" y="6" width="2" height="2" fill="var(--arcade-tangerine)" />
+        <rect x="7" y="8" width="2" height="2" fill="var(--arcade-tangerine)" />
+        <rect x="11" y="6" width="2" height="20" fill="var(--arcade-tangerine)" />
+
+        <rect x="15" y="6" width="2" height="20" fill="var(--arcade-lagoon)" />
+        <rect x="17" y="6" width="6" height="2" fill="var(--arcade-lagoon)" />
+        <rect x="17" y="24" width="6" height="2" fill="var(--arcade-lagoon)" />
+
+        <rect x="25" y="6" width="2" height="20" fill="var(--arcade-hibiscus)" />
+        <rect x="27" y="6" width="2" height="2" fill="var(--arcade-hibiscus)" />
+        <rect x="27" y="24" width="2" height="2" fill="var(--arcade-hibiscus)" />
+      </svg>
     </div>
   );
 }
@@ -357,8 +496,10 @@ export default function App() {
 function ConnectionBadge({ connected }: { connected: boolean }) {
   return (
     <span
-      className={`flex items-center gap-1.5 text-xs font-medium ${
-        connected ? 'status-online' : 'status-offline'
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+        connected
+          ? 'border-arcade-leaf bg-arcade-leaf/15 status-online'
+          : 'border-arcade-hibiscus bg-arcade-hibiscus/15 status-offline'
       }`}
     >
       <span
@@ -366,8 +507,43 @@ function ConnectionBadge({ connected }: { connected: boolean }) {
           connected ? 'status-online-dot' : 'status-offline-dot'
         }`}
       />
-      {connected ? 'Connected' : 'Disconnected'}
+      <span className="font-pixel uppercase tracking-widest text-[10px]">
+        {connected ? 'Online' : 'Offline'}
+      </span>
     </span>
+  );
+}
+
+function BootSplash() {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <div className="provider-halo crt-scanline">
+        <svg viewBox="0 0 32 32" width={36} height={36} shapeRendering="crispEdges">
+          <rect x="6" y="6" width="20" height="20" fill="var(--arcade-tangerine)" />
+          <rect x="10" y="10" width="12" height="12" fill="var(--paper-50)" />
+          <rect x="14" y="14" width="4" height="4" fill="var(--ink-900)" />
+        </svg>
+      </div>
+      <p className="font-pixel text-xs uppercase tracking-[0.3em] text-ink-400">loading…</p>
+    </div>
+  );
+}
+
+function AppFooter() {
+  return (
+    <footer className="mx-auto mt-12 max-w-6xl px-5 sm:px-8">
+      <div className="border-t border-paper-300 pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-ink-400">
+          <span className="font-pixel uppercase tracking-widest">
+            MCC v0.1 · cupertino arcade build
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Ui name="heart" size={11} className="text-arcade-hibiscus" />
+            <span>made for ⌘+K life-switching</span>
+          </span>
+        </div>
+      </div>
+    </footer>
   );
 }
 
@@ -382,25 +558,27 @@ function SaveBar({ dirty, saved, saving, onSave }: SaveBarProps) {
   if (!dirty && !saved) return null;
   return (
     <div
-      className={`rounded-lg p-3 flex items-center justify-between ${
+      className={`flex items-center justify-between rounded-2xl p-3.5 ${
         saved ? 'banner-success' : 'banner-warning'
       }`}
     >
-      <div>
+      <div className="flex items-center gap-2">
+        <Ui name={saved ? 'check-bold' : 'lightning'} size={16} />
         {saved ? (
-          <>
-            <span className="text-sm font-medium">Saved</span>
-            <p className="text-xs text-muted-foreground mt-1">
+          <div>
+            <span className="font-rounded text-sm font-semibold">已保存</span>
+            <p className="mt-0.5 text-xs opacity-80">
               改动不会影响正在运行的 MCC 实例，重启后生效。
             </p>
-          </>
+          </div>
         ) : (
-          <span className="text-sm">You have unsaved changes</span>
+          <span className="font-rounded text-sm font-semibold">未保存的改动</span>
         )}
       </div>
       {dirty && (
         <Button size="sm" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+          <Ui name="check-bold" size={14} />
+          {saving ? '保存中…' : '保存'}
         </Button>
       )}
     </div>

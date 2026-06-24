@@ -183,3 +183,31 @@ export async function getProviderPresets(): Promise<ProviderPresets> {
   if (!res.ok) throw new Error('Failed to fetch provider presets');
   return res.json();
 }
+
+// Profile preset catalog (templates)
+
+export type ProfilePresetCategory = 'recommended' | 'alternative';
+
+export interface ProfilePreset {
+  id: string;
+  name: string;
+  description: string;
+  baseUrl: string;
+  defaultProfileName: string;
+  defaultModel: string;
+  apiKeyPlaceholder: string;
+  apiKeyHint: string;
+  category: ProfilePresetCategory;
+  requiresApiKey: boolean;
+  badge?: string;
+  featured?: boolean;
+  icon?: string;
+  alwaysThinkingEnabled?: boolean;
+  proxyChatCompletionsPath?: string;
+}
+
+export async function getProfilePresets(): Promise<ProfilePreset[]> {
+  const res = await fetch(`${API_BASE}/profile-presets`);
+  if (!res.ok) throw new Error('Failed to fetch profile presets');
+  return res.json();
+}

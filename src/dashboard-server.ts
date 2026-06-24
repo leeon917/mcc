@@ -27,6 +27,7 @@ import {
   readInstanceExternalEnabled,
 } from './mcp/installer';
 import { MCCInstanceManager } from './accounts/instance-manager';
+import { PROVIDER_PRESET_DEFINITIONS } from './shared/provider-preset-catalog';
 
 const PORT = 3000;
 const DIST_DIR = path.join(__dirname, '..', 'dist', 'ui');
@@ -382,6 +383,11 @@ async function main() {
   // GET /api/mcp-config/presets
   app.get('/api/mcp-config/presets', (_req, res) => {
     res.json(getProviderPresets());
+  });
+
+  // GET /api/profile-presets - provider templates for the Templates gallery
+  app.get('/api/profile-presets', (_req, res) => {
+    res.json(PROVIDER_PRESET_DEFINITIONS);
   });
 
   app.get('*', (_req, res) => {

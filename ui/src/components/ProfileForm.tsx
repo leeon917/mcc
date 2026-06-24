@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Ui } from '@/components/icons/Ui';
 import type { Profile } from '@/lib/api';
 
 export interface ProfileFormPayload {
@@ -47,6 +48,7 @@ const EMPTY_FORM: FormState = {
 
 export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [revealKey, setRevealKey] = useState(false);
 
   useEffect(() => {
     if (editingProfile) {
@@ -69,7 +71,7 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
 
   async function handleSubmit() {
     if (!form.name || !form.baseUrl || !form.model) return;
-    if (!isEdit && !form.apiKey) return; // require key on create
+    if (!isEdit && !form.apiKey) return;
 
     await onSubmit({
       name: form.name,
@@ -88,21 +90,36 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{isEdit ? 'Edit Profile' : 'Add Profile'}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          {isEdit ? (
+            <>
+              <Ui name="edit" size={18} className="text-arcade-sunshine" />
+              Edit Profile
+            </>
+          ) : (
+            <>
+              <Ui name="plus" size={18} className="text-arcade-leaf" />
+              Manual Add
+            </>
+          )}
+        </CardTitle>
         <CardDescription>
-          {isEdit ? `Editing: ${editingProfile?.name}` : 'Configure a new profile'}
+          {isEdit
+            ? `编辑 ${editingProfile?.name} —— API Key 留空则保持原值不变。`
+            : '手动添加 — 大多数情况直接用 Templates 即可。'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <Field id="name" label="Profile Name">
+      <CardContent className="space-y-4">
+        <Field id="name" label="Profile 名称">
           <Input
             id="name"
-            placeholder="e.g. prod"
+            placeholder="prod / scratch / claude-coder…"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             disabled={isEdit}
           />
         </Field>
+
         <Field id="baseUrl" label="Base URL">
           <Input
             id="baseUrl"
@@ -111,69 +128,84 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
             onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
           />
         </Field>
+
         <Field id="apiKey" label="API Key">
-          <Input
-            id="apiKey"
-            type="password"
-            placeholder={isEdit ? '(unchanged if empty)' : 'sk-...'}
-            value={form.apiKey}
-            onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-          />
+          <div className="relative">
+            <Input
+              id="apiKey"
+              type={revealKey ? 'text' : 'password'}
+              placeholder={isEdit ? '(留空保持不变)' : 'sk-...'}
+              value={form.apiKey}
+              onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setRevealKey((v) => !v)}
+              aria-label={revealKey ? 'Hide key' : 'Show key'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-400 transition-colors hover:bg-paper-200 hover:text-ink-900"
+            >
+              <Ui name={revealKey ? 'eye-off' : 'eye'} size={14} />
+            </button>
+          </div>
         </Field>
-        <Field id="model" label="Default Model">
+
+        <Field id="model" label="默认 Model">
           <Input
             id="model"
-            placeholder="e.g. deepseek-chat"
+            placeholder="deepseek-v4-pro"
             value={form.model}
             onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
           />
         </Field>
+
         <Field id="protocol" label="Protocol">
-          <select
-            id="protocol"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          <ProtocolToggle
             value={form.protocol}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, protocol: e.target.value as 'anthropic' | 'openai' }))
-            }
-          >
-            <option value="anthropic">Anthropic (direct)</option>
-            <option value="openai">OpenAI-compatible (translation proxy)</option>
-          </select>
+            onChange={(v) => setForm((f) => ({ ...f, protocol: v }))}
+          />
         </Field>
-        <div className="grid grid-cols-3 gap-2">
-          <Field id="opus" label="Opus">
-            <Input
-              id="opus"
-              placeholder="Opus model"
-              value={form.opus}
-              onChange={(e) => setForm((f) => ({ ...f, opus: e.target.value }))}
-            />
-          </Field>
-          <Field id="sonnet" label="Sonnet">
-            <Input
-              id="sonnet"
-              placeholder="Sonnet model"
-              value={form.sonnet}
-              onChange={(e) => setForm((f) => ({ ...f, sonnet: e.target.value }))}
-            />
-          </Field>
-          <Field id="haiku" label="Haiku">
-            <Input
-              id="haiku"
-              placeholder="Haiku model"
-              value={form.haiku}
-              onChange={(e) => setForm((f) => ({ ...f, haiku: e.target.value }))}
-            />
-          </Field>
-        </div>
-        <div className="flex gap-2">
+
+        <details className="rounded-xl border border-paper-300 bg-paper-50 px-3 py-2.5 text-sm">
+          <summary className="cursor-pointer select-none font-rounded font-semibold text-ink-900">
+            <span className="mr-2">▸</span> 分层模型 (Opus / Sonnet / Haiku)
+          </summary>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <Field id="opus" label="Opus" compact>
+              <Input
+                id="opus"
+                placeholder="opus"
+                value={form.opus}
+                onChange={(e) => setForm((f) => ({ ...f, opus: e.target.value }))}
+              />
+            </Field>
+            <Field id="sonnet" label="Sonnet" compact>
+              <Input
+                id="sonnet"
+                placeholder="sonnet"
+                value={form.sonnet}
+                onChange={(e) => setForm((f) => ({ ...f, sonnet: e.target.value }))}
+              />
+            </Field>
+            <Field id="haiku" label="Haiku" compact>
+              <Input
+                id="haiku"
+                placeholder="haiku"
+                value={form.haiku}
+                onChange={(e) => setForm((f) => ({ ...f, haiku: e.target.value }))}
+              />
+            </Field>
+          </div>
+        </details>
+
+        <div className="flex gap-2 pt-2">
           <Button className="flex-1" onClick={handleSubmit}>
-            {isEdit ? 'Update Profile' : 'Add Profile'}
+            <Ui name={isEdit ? 'check-bold' : 'plus'} size={14} />
+            {isEdit ? '保存修改' : '添加 Profile'}
           </Button>
           {isEdit && (
             <Button variant="outline" onClick={onCancel}>
-              Cancel
+              取消
             </Button>
           )}
         </div>
@@ -182,10 +214,69 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
   );
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+function ProtocolToggle({
+  value,
+  onChange,
+}: {
+  value: 'anthropic' | 'openai';
+  onChange: (v: 'anthropic' | 'openai') => void;
+}) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div className="grid grid-cols-2 gap-2">
+      {(['anthropic', 'openai'] as const).map((opt) => {
+        const active = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={`rounded-xl border-2 p-2.5 text-left transition-all ${
+              active
+                ? 'border-ink-900 bg-arcade-lagoon/15 shadow-pixel1'
+                : 'border-paper-300 bg-paper-50 hover:border-ink-400'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  active ? 'bg-arcade-lagoon' : 'bg-paper-400'
+                }`}
+              />
+              <span className="font-rounded text-sm font-semibold text-ink-900">
+                {opt === 'anthropic' ? 'Anthropic' : 'OpenAI'}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-tight text-ink-400">
+              {opt === 'anthropic'
+                ? '直接命中 /v1/messages，0 中间层'
+                : '本地 proxy 翻译为 Anthropic 协议'}
+            </p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Field({
+  id,
+  label,
+  children,
+  compact,
+}: {
+  id: string;
+  label: string;
+  children: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? 'space-y-1' : 'space-y-1.5'}>
+      <Label
+        htmlFor={id}
+        className="font-pixel text-2xs uppercase tracking-widest text-ink-600"
+      >
+        {label}
+      </Label>
       {children}
     </div>
   );

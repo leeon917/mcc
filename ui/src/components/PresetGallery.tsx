@@ -304,6 +304,9 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
       apiKey: apiKey.trim() || preset.apiKeyPlaceholder, // local-only Ollama uses placeholder
       model: model.trim() || preset.defaultModel,
       protocol,
+      opusModel: preset.opusModel,
+      sonnetModel: preset.sonnetModel,
+      haikuModel: preset.haikuModel,
     });
     setInstalling(false);
     if (ok) onClose();

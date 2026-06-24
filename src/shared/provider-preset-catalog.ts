@@ -47,6 +47,11 @@ export interface ProviderPresetDefinition {
   alwaysThinkingEnabled?: boolean;
   /** Override default /v1/chat/completions proxy path (e.g. '/chat/completions' for BigModel) */
   proxyChatCompletionsPath?: string;
+  /** Tiered model defaults — let Claude Code's /model picker route Opus/Sonnet/Haiku
+   *  to provider-specific models. Empty fields fall back to `defaultModel`. */
+  opusModel?: string;
+  sonnetModel?: string;
+  haikuModel?: string;
   /** UI metadata */
   badge?: string;
   featured?: boolean;
@@ -160,6 +165,9 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     baseUrl: 'https://api.z.ai/api/anthropic',
     defaultProfileName: 'glm',
     defaultModel: 'glm-5',
+    opusModel: 'glm-5',
+    sonnetModel: 'glm-5',
+    haikuModel: 'glm-5-air',
     apiKeyPlaceholder: 'ghp_...',
     apiKeyHint: 'Get your API key from Z.AI',
     category: 'alternative',
@@ -200,6 +208,9 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     baseUrl: 'https://api.minimaxi.com/anthropic',
     defaultProfileName: 'mm',
     defaultModel: 'MiniMax-M2.1',
+    opusModel: 'MiniMax-M2.1',
+    sonnetModel: 'MiniMax-M2.1',
+    haikuModel: 'MiniMax-M2.1-lightning',
     apiKeyPlaceholder: 'YOUR_MINIMAX_API_KEY_HERE',
     apiKeyHint: 'Get your API key at platform.minimaxi.com (国内域名)',
     category: 'alternative',
@@ -213,6 +224,9 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     baseUrl: 'https://api.deepseek.com/anthropic',
     defaultProfileName: 'deepseek',
     defaultModel: 'deepseek-v4-pro',
+    opusModel: 'deepseek-v4-pro',
+    sonnetModel: 'deepseek-v4-pro',
+    haikuModel: 'deepseek-v4-flash',
     apiKeyPlaceholder: 'sk-...',
     apiKeyHint: 'Get your API key at platform.deepseek.com',
     category: 'alternative',
@@ -226,6 +240,9 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     defaultProfileName: 'qwen',
     defaultModel: 'qwen3-coder-plus',
+    opusModel: 'qwen3-max',
+    sonnetModel: 'qwen3-coder-plus',
+    haikuModel: 'qwen3-turbo',
     apiKeyPlaceholder: 'sk-...',
     apiKeyHint: '阿里云 Model Studio 控制台获取 DashScope API Key',
     category: 'alternative',
@@ -240,6 +257,9 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     baseUrl: 'https://api.xiaomimimo.com/anthropic',
     defaultProfileName: 'xiaomi',
     defaultModel: 'mimo-v2-pro',
+    opusModel: 'mimo-v2-pro',
+    sonnetModel: 'mimo-v2-pro',
+    haikuModel: 'mimo-v2-flash',
     apiKeyPlaceholder: 'YOUR_XIAOMI_MIMO_API_KEY',
     apiKeyHint: 'platform.xiaomimimo.com 控制台获取',
     category: 'alternative',
@@ -279,6 +299,9 @@ const RAW_PROVIDER_PRESET_DEFINITIONS: readonly ProviderPresetDefinition[] = [
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     defaultProfileName: 'bigmodel',
     defaultModel: 'glm-5',
+    opusModel: 'glm-5',
+    sonnetModel: 'glm-5',
+    haikuModel: 'glm-5-air',
     apiKeyPlaceholder: 'YOUR_BIGMODEL_API_KEY',
     apiKeyHint: 'Get your API key at bigmodel.cn',
     category: 'alternative',

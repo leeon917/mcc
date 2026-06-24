@@ -37,8 +37,17 @@ import {
 import { startProxy } from './proxy/proxy-daemon';
 import { log, init, makeSessionId, isDebugEnabled } from './shared/logger';
 import { readMcpConfig, getEnabledWebSearchProviders, getActiveImageAnalysisProvider } from './mcp/mcp-config';
+import { checkForUpdates, runUpdate, setUpdateCheckCmd } from './update';
 
-const PKG_VERSION = '0.1.6';
+function readPkgVersion(): string {
+  try {
+    return (require(path.join(__dirname, '..', 'package.json')) as { version: string }).version;
+  } catch {
+    return '0.0.0';
+  }
+}
+
+const PKG_VERSION = readPkgVersion();
 
 const instanceMgr = new MCCInstanceManager();
 
@@ -72,6 +81,10 @@ Examples:
   mcc profile add prod --base-url https://api.deepseek.com/anthropic --api-key sk-xxxx --model deepseek-chat
   mcc profile list
   mcc dashboard
+
+  mcc update              Upgrade mcc to the latest version
+  mcc update --check      Check for a new version without installing
+  mcc update-check off    Disable the "update available" reminder (default: on)
 `.trim());
 }
 
@@ -403,6 +416,10 @@ async function cmdMcpDisable(args: string[]): Promise<void> {
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
 
+  // Kick off the (async, cached) update check as early as possible so any
+  // pending notification can print at process exit. No-op when disabled / in CI.
+  checkForUpdates(PKG_VERSION);
+
   // Global flags — always intercepted regardless of position
   // NOTE: -v/-h are intentionally NOT subcommand-aware for simplicity
   if (rawArgs[0] === '-h' || rawArgs[0] === '--help') {
@@ -456,6 +473,14 @@ async function main(): Promise<void> {
         env: process.env,
         stdio: 'inherit',
       });
+      break;
+    }
+    case 'update': {
+      await runUpdate({ checkOnly: args.includes('--check') });
+      break;
+    }
+    case 'update-check': {
+      setUpdateCheckCmd(args[0]);
       break;
     }
     case 'mcp': {

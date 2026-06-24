@@ -105,6 +105,29 @@ pnpm build:ui        # 构建 React Dashboard
 pnpm dashboard       # 编译 + 启动 Dashboard（端口 3000）
 ```
 
+## 发版（Release）
+
+发版是 **tag 驱动**的，全自动走 GitHub Actions，本机不需要 `npm login`、也没有 `NPM_TOKEN`。
+
+- **CI**（`.github/workflows/ci.yml`）：PR 与 push 到 `main` 时跑 `pnpm typecheck` + `pnpm build:all`。
+- **Release**（`.github/workflows/release.yml`）：push 一个 `v*` tag 即触发，CI 里跑 `npm publish`，走 **npm OIDC trusted publishing**（`id-token: write` 向 npm 证明仓库身份，provenance 自动生成，无需 token）。`publishConfig` 已设 `{access: public, provenance: true}`。
+
+**标准发版流程（一条命令）**——在 `main` 干净、改动已合并后：
+
+```bash
+npm version minor    # 或 patch / major：自动 bump package.json + 建 commit + 打 v<x.y.z> tag
+                     # postversion 钩子（git push --follow-tags）顺带把 commit 和 tag 一起推 → 触发 Release
+```
+
+**若版本号已手动 bump 并提交**（tag 还没打），只需补打 tag 再推：
+
+```bash
+git push                                  # 先推普通 commit
+git tag v0.3.0 && git push origin v0.3.0  # 打 tag 并推 → 触发 Release
+```
+
+注意事项（来自 `release.yml` 注释里的踩坑）：发布用的 Node 须 ≥ 22.14、npm 须 ≥ 11.5.1（OIDC 要求，故 workflow 里显式 `npm install -g npm@latest`）；`setup-node` **不要**设 `registry-url`（会写占位 token 的 `.npmrc`，npm 拿假 token 认证而不走 OIDC，必 404）；用 `npm publish` 而非 `pnpm publish`（pnpm 11 的 OIDC 有 404 回归）。
+
 ## CLI 命令
 
 ```bash

@@ -7,63 +7,46 @@ import cors from 'cors';
 import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
-import type { Profile } from './accounts/store';
-import { BUILTIN_MCP_SERVERS, getAllServers, type McpRegistryEntry } from './mcp/registry';
+import {
+  listProfiles,
+  saveProfile,
+  deleteProfile,
+  setDefaultProfile,
+  getDefaultProfile,
+  getProfileApiKey,
+  type Profile,
+} from '../accounts/store';
+import { BUILTIN_MCP_SERVERS, getAllServers, type McpRegistryEntry } from '../mcp/registry';
 import {
   readMcpConfig,
   writeMcpConfig,
   getProviderPresets,
   type McpConfig,
-} from './mcp/mcp-config';
+} from '../mcp/mcp-config';
 import {
   readExternalMcpRegistry,
   addExternalMcpServer,
   removeExternalMcpServer,
   type ExternalMcpServer,
-} from './mcp/external-registry';
+} from '../mcp/external-registry';
 import {
   enableInstanceExternalMcp,
   disableInstanceExternalMcp,
   readInstanceExternalEnabled,
-} from './mcp/installer';
-import { MCCInstanceManager } from './accounts/instance-manager';
-import { PROVIDER_PRESET_DEFINITIONS } from './shared/provider-preset-catalog';
+} from '../mcp/installer';
+import { MCCInstanceManager } from '../accounts/instance-manager';
+import { PROVIDER_PRESET_DEFINITIONS } from '../shared/provider-preset-catalog';
 
 const PORT = 3000;
-const DIST_DIR = path.join(__dirname, '..', 'dist', 'ui');
-
-async function importModule<T>(modulePath: string, fn: string): Promise<T> {
-  const mod = await import(modulePath);
-  return (mod as Record<string, T>)[fn] as T;
-}
-
-async function listProfiles() {
-  const fn = await importModule<() => Profile[]>('./accounts/store', 'listProfiles');
-  return fn();
-}
-
-async function saveProfile(profile: Profile, apiKey: string) {
-  const fn = await importModule<(profile: Profile, apiKey: string) => void>(
-    './accounts/store',
-    'saveProfile'
-  );
-  return fn(profile, apiKey);
-}
-
-async function deleteProfile(name: string) {
-  const fn = await importModule<(name: string) => void>('./accounts/store', 'deleteProfile');
-  return fn(name);
-}
-
-async function setDefaultProfile(name: string) {
-  const fn = await importModule<(name: string) => void>('./accounts/store', 'setDefaultProfile');
-  return fn(name);
-}
-
-async function getDefaultProfile() {
-  const fn = await importModule<() => string | undefined>('./accounts/store', 'getDefaultProfile');
-  return fn();
-}
+// dist/dashboard/server.js → ../../dist/ui  (two levels up to reach dist/)
+const DIST_DIR = path.join(__dirname, '..', '..', 'dist', 'ui');
+const PKG_VERSION = ((): string => {
+  try {
+    return (require(path.join(__dirname, '..', '..', 'package.json')) as { version: string }).version;
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 function openBrowser(url: string) {
   const isWindows = process.platform === 'win32';
@@ -85,16 +68,16 @@ async function main() {
   }
 
   // GET /api/profiles
-  app.get('/api/profiles', async (_req, res) => {
+  app.get('/api/profiles', (_req, res) => {
     try {
-      res.json(await listProfiles());
+      res.json(listProfiles());
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }
   });
 
   // POST /api/profiles
-  app.post('/api/profiles', async (req, res) => {
+  app.post('/api/profiles', (req, res) => {
     try {
       const { name, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
         name: string;
@@ -112,7 +95,7 @@ async function main() {
         return;
       }
       const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, protocol: protocol || 'anthropic', proxyChatCompletionsPath: proxyChatCompletionsPath || undefined, createdAt: new Date().toISOString() };
-      await saveProfile(profile, apiKey);
+      saveProfile(profile, apiKey);
       console.log(`[i] Profile created: ${name} (model: ${model}, protocol: ${protocol || 'anthropic'})`);
       res.json({ ok: true });
     } catch (e) {
@@ -121,7 +104,7 @@ async function main() {
   });
 
   // PUT /api/profiles/:name — update profile
-  app.put('/api/profiles/:name', async (req, res) => {
+  app.put('/api/profiles/:name', (req, res) => {
     try {
       const { baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
         baseUrl?: string;
@@ -134,13 +117,8 @@ async function main() {
         proxyChatCompletionsPath?: string;
       };
       const profileName = req.params.name;
-      const getProfileApiKey = await importModule<(name: string) => string | undefined>(
-        './accounts/store',
-        'getProfileApiKey'
-      );
       const existingKey = getProfileApiKey(profileName);
-      const profiles = await listProfiles();
-      const existing = profiles.find((p) => p.name === profileName);
+      const existing = listProfiles().find((p) => p.name === profileName);
       if (!existing) {
         res.status(404).json({ error: 'Profile not found' });
         return;
@@ -156,7 +134,7 @@ async function main() {
         proxyChatCompletionsPath: proxyChatCompletionsPath !== undefined ? (proxyChatCompletionsPath || undefined) : existing.proxyChatCompletionsPath,
       };
       // Only update API key if a new one is provided
-      await saveProfile(updated, apiKey ?? existingKey ?? '');
+      saveProfile(updated, apiKey ?? existingKey ?? '');
       console.log(`[i] Profile updated: ${profileName} (model: ${updated.model}, protocol: ${updated.protocol || 'anthropic'})`);
       res.json({ ok: true });
     } catch (e) {
@@ -165,10 +143,10 @@ async function main() {
   });
 
   // DELETE /api/profiles/:name
-  app.delete('/api/profiles/:name', async (req, res) => {
+  app.delete('/api/profiles/:name', (req, res) => {
     try {
       const name = req.params.name;
-      await deleteProfile(name);
+      deleteProfile(name);
       console.log(`[i] Profile deleted: ${name}`);
       res.json({ ok: true });
     } catch (e) {
@@ -177,26 +155,29 @@ async function main() {
   });
 
   // PUT /api/profiles/:name/default
-  app.put('/api/profiles/:name/default', async (req, res) => {
+  app.put('/api/profiles/:name/default', (req, res) => {
     try {
-      await setDefaultProfile(req.params.name);
+      setDefaultProfile(req.params.name);
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }
   });
 
-  // GET /api/ping - connection health check
+  // GET /api/ping - connection health check (UI 用，5s 轮询)
   app.get('/api/ping', (_req, res) => {
     res.json({ ok: true });
   });
 
+  // GET /api/health - 进程级探活（用于 systemd / Docker / 外部监控）
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', version: PKG_VERSION, uptime: process.uptime() });
+  });
+
   // GET /api/status
-  app.get('/api/status', async (_req, res) => {
+  app.get('/api/status', (_req, res) => {
     try {
-      const defaultProfile = await getDefaultProfile();
-      let currentProfile = defaultProfile;
-      res.json({ currentProfile });
+      res.json({ currentProfile: getDefaultProfile() });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }

@@ -19,10 +19,11 @@ jobs:
           version: 10
 
       # trusted publishing 要求 Node >= 22.14
+      # 注意：不要设 registry-url —— 它会让 setup-node 写一个带占位 token
+      # (XXXXX-XXXXX-XXXXX-XXXXX) 的 .npmrc，npm 会拿这个假 token 去认证而不走 OIDC，必 404。
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
       # trusted publishing 要求 npm CLI >= 11.5.1（Node 22 自带的 npm 不够新）

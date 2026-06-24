@@ -29,6 +29,8 @@ jobs:
       # trusted publishing 要求 npm CLI >= 11.5.1（Node 22 自带的 npm 不够新）
       - run: npm install -g npm@latest
 
+      - run: node -v && npm -v # 确认 publish 用的是 npm >= 11.5.1（OIDC 要求）
+
       - run: pnpm install --frozen-lockfile
 
       # 用 npm publish 走 OIDC（pnpm 11 的 OIDC 有已知 404 回归）。

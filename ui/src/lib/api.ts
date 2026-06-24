@@ -2,6 +2,7 @@ const API_BASE = '/api';
 
 export interface Profile {
   name: string;
+  displayName?: string;
   baseUrl: string;
   model: string;
   opusModel?: string;
@@ -70,6 +71,38 @@ export async function deleteProfile(name: string): Promise<void> {
 export async function setDefaultProfile(name: string): Promise<void> {
   const res = await fetch(`${API_BASE}/profiles/${name}/default`, { method: 'PUT' });
   if (!res.ok) throw new Error('Failed to set default profile');
+}
+
+export async function getProfileKey(name: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/profiles/${encodeURIComponent(name)}/key`);
+  if (!res.ok) throw new Error('Failed to fetch profile key');
+  const data = (await res.json()) as { apiKey: string };
+  return data.apiKey;
+}
+
+export interface TestProfileResult {
+  ok: boolean;
+  latencyMs: number;
+  models: string[];
+  error?: string;
+}
+
+export async function testProfile(args: {
+  baseUrl: string;
+  protocol: 'anthropic' | 'openai';
+  apiKey?: string;
+  profileName?: string;
+}): Promise<TestProfileResult> {
+  const res = await fetch(`${API_BASE}/profiles/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || 'Failed to test profile');
+  }
+  return res.json();
 }
 
 export async function getMcpServers(): Promise<McpServer[]> {
@@ -195,6 +228,9 @@ export interface ProfilePreset {
   baseUrl: string;
   defaultProfileName: string;
   defaultModel: string;
+  opusModel?: string;
+  sonnetModel?: string;
+  haikuModel?: string;
   apiKeyPlaceholder: string;
   apiKeyHint: string;
   category: ProfilePresetCategory;

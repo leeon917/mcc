@@ -9,6 +9,7 @@ import { strings } from '@/lib/strings';
 interface ProfileListProps {
   profiles: Profile[];
   currentProfile: string;
+  editingName: string | null;
   onEdit: (profile: Profile) => void;
   onSetDefault: (name: string) => void;
   onDelete: (name: string) => void;
@@ -17,6 +18,7 @@ interface ProfileListProps {
 export function ProfileList({
   profiles,
   currentProfile,
+  editingName,
   onEdit,
   onSetDefault,
   onDelete,
@@ -36,6 +38,9 @@ export function ProfileList({
                 ? t.emptyDescription
                 : t.countDescription(profiles.length, currentProfile)}
             </CardDescription>
+            {profiles.length > 0 && (
+              <p className="text-[11px] text-ink-400">{t.clickHint}</p>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -49,6 +54,7 @@ export function ProfileList({
                 key={p.name}
                 profile={p}
                 isCurrent={p.name === currentProfile}
+                isEditing={p.name === editingName}
                 onEdit={() => onEdit(p)}
                 onSetDefault={() => onSetDefault(p.name)}
                 onDelete={() => onDelete(p.name)}
@@ -80,19 +86,44 @@ function EmptyState() {
 interface ProfileRowProps {
   profile: Profile;
   isCurrent: boolean;
+  isEditing: boolean;
   onEdit: () => void;
   onSetDefault: () => void;
   onDelete: () => void;
 }
 
-function ProfileRow({ profile, isCurrent, onEdit, onSetDefault, onDelete }: ProfileRowProps) {
+function ProfileRow({ profile, isCurrent, isEditing, onEdit, onSetDefault, onDelete }: ProfileRowProps) {
   const t = strings.profileList;
   const providerId = guessProviderId(profile.baseUrl || '');
   const accent = getProviderAccent(providerId);
   const tint = getProviderTint(providerId);
+  const label = profile.displayName?.trim() || profile.name;
+  const showHandle = !!profile.displayName && profile.displayName !== profile.name;
+
+  // Stop propagation so the surrounding container's "click empty area = cancel"
+  // handler doesn't fire when the user actually meant to click the card itself.
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-paper-300 bg-paper-50 transition-all hover:border-ink-900 hover:shadow-pixel1">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        stop(e);
+        onEdit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onEdit();
+        }
+      }}
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-paper-50 transition-all hover:border-ink-900 hover:shadow-pixel1 ${
+        isEditing
+          ? 'border-ink-900 shadow-pixel1 ring-2 ring-arcade-sunshine/60'
+          : 'border-paper-300'
+      }`}
+    >
       {isCurrent && (
         <div
           className="absolute left-0 top-0 h-full w-1.5"
@@ -107,11 +138,20 @@ function ProfileRow({ profile, isCurrent, onEdit, onSetDefault, onDelete }: Prof
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-rounded text-sm font-bold text-ink-900">{profile.name}</span>
+            <span className="font-rounded text-sm font-bold text-ink-900">{label}</span>
+            {showHandle && (
+              <span className="font-mono text-[11px] text-ink-400">mcc {profile.name}</span>
+            )}
             {isCurrent && (
               <span className="pixel-chip pixel-chip-success">
                 <Ui name="check-bold" size={9} />
                 {t.defaultChip}
+              </span>
+            )}
+            {isEditing && (
+              <span className="pixel-chip pixel-chip-tangerine">
+                <Ui name="edit" size={9} />
+                {t.editingChip}
               </span>
             )}
             <span className="pixel-chip">{profile.protocol || 'anthropic'}</span>
@@ -126,11 +166,7 @@ function ProfileRow({ profile, isCurrent, onEdit, onSetDefault, onDelete }: Prof
             {profile.haikuModel && <ModelLine label="haiku" value={profile.haikuModel} />}
           </dl>
 
-          <div className="mt-3 flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={onEdit}>
-              <Ui name="edit" size={12} />
-              {t.edit}
-            </Button>
+          <div className="mt-3 flex items-center gap-1" onClick={stop}>
             {!isCurrent && (
               <Button size="sm" variant="ghost" onClick={onSetDefault}>
                 <Ui name="pin" size={12} />

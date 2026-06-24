@@ -25,7 +25,8 @@ function getProfilesJsonPath(): string {
 }
 
 export interface Profile {
-  name: string;
+  name: string;            // CLI handle, unique, immutable — what `mcc <name>` resolves
+  displayName?: string;    // Optional pretty label for UI; falls back to `name` when missing
   baseUrl: string;
   model: string;           // Default model
   opusModel?: string;       // Tier 1 (Opus)

@@ -24,6 +24,7 @@ export type Protocol = 'anthropic' | 'openai';
  */
 export interface ProfileFormPayload {
   name: string;
+  displayName?: string;
   baseUrl: string;
   apiKey?: string;
   model: string;
@@ -40,10 +41,14 @@ export interface ProfileFormPayload {
  */
 export interface PresetInstallArgs {
   name: string;
+  displayName?: string;
   baseUrl: string;
   apiKey: string;
   model: string;
   protocol: Protocol;
+  opusModel?: string;
+  sonnetModel?: string;
+  haikuModel?: string;
 }
 
 /**

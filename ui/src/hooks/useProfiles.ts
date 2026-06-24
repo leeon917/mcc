@@ -75,6 +75,7 @@ export function useProfiles(): UseProfilesResult {
     try {
       if (editing) {
         await updateProfile(editing.name, {
+          displayName: payload.displayName,
           baseUrl: payload.baseUrl,
           apiKey: payload.apiKey,
           model: payload.model,
@@ -88,6 +89,7 @@ export function useProfiles(): UseProfilesResult {
         if (!payload.apiKey) return;
         await addProfile({
           name: payload.name,
+          displayName: payload.displayName,
           baseUrl: payload.baseUrl,
           apiKey: payload.apiKey,
           model: payload.model,

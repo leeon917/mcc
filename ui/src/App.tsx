@@ -111,20 +111,28 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="profiles">
-            <div className="grid gap-5 lg:grid-cols-5">
+            {/* Clicking blank space inside the profiles tab clears the edit
+                target, returning the form to "add" mode. Cards stopPropagation
+                so they don't trigger this. */}
+            <div
+              className="grid gap-5 lg:grid-cols-5"
+              onClick={() => {
+                if (profilesCtl.editing) profilesCtl.setEditing(null);
+              }}
+            >
               <div className="lg:col-span-3">
                 <ProfileList
                   profiles={profilesCtl.profiles}
                   currentProfile={profilesCtl.currentProfile}
+                  editingName={profilesCtl.editing?.name ?? null}
                   onEdit={(p) => {
                     profilesCtl.setEditing(p);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   onSetDefault={profilesCtl.pickDefault}
                   onDelete={profilesCtl.removeProfile}
                 />
               </div>
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2" onClick={(e) => e.stopPropagation()}>
                 <ProfileForm
                   editingProfile={profilesCtl.editing}
                   onSubmit={profilesCtl.submitProfile}

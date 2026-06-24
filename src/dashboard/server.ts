@@ -48,6 +48,92 @@ const PKG_VERSION = ((): string => {
   }
 })();
 
+interface ProviderTestResult {
+  ok: boolean;
+  latencyMs: number;
+  models: string[];
+  error?: string;
+}
+
+/**
+ * Hit the provider's models endpoint to verify the key and return the
+ * available model list. One round-trip covers both "is this key valid?"
+ * and "what models can I pick from?" — they share the same auth.
+ *
+ *   Anthropic protocol → GET {base}/v1/models  (x-api-key + anthropic-version)
+ *   OpenAI protocol    → GET {base}/models     (Authorization: Bearer)
+ */
+async function testProviderKey(
+  baseUrl: string,
+  apiKey: string,
+  protocol: 'anthropic' | 'openai'
+): Promise<ProviderTestResult> {
+  const start = Date.now();
+  const trimmedBase = baseUrl.trim().replace(/\/+$/, '');
+  const url = protocol === 'anthropic' ? `${trimmedBase}/v1/models` : `${trimmedBase}/models`;
+  const headers: Record<string, string> =
+    protocol === 'anthropic'
+      ? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+      : { Authorization: `Bearer ${apiKey}` };
+
+  try {
+    const resp = await fetch(url, { method: 'GET', headers });
+    const latencyMs = Date.now() - start;
+    if (!resp.ok) {
+      let errText: string;
+      try {
+        errText = await resp.text();
+      } catch {
+        errText = '';
+      }
+      return {
+        ok: false,
+        latencyMs,
+        models: [],
+        error: `HTTP ${resp.status} ${resp.statusText}${errText ? ` — ${errText.slice(0, 200)}` : ''}`,
+      };
+    }
+    const body = (await resp.json()) as unknown;
+    const models = extractModelIds(body);
+    return { ok: true, latencyMs, models };
+  } catch (e) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - start,
+      models: [],
+      error: (e as Error).message,
+    };
+  }
+}
+
+/**
+ * Extract model IDs from the various shapes providers return. We accept
+ * `data: [...]`, `models: [...]`, or a bare array; each entry can be a
+ * string or an object with `id` / `model` / `name`.
+ */
+function extractModelIds(body: unknown): string[] {
+  if (!body) return [];
+  const raw = body as { data?: unknown[]; models?: unknown[] };
+  const list: unknown[] = Array.isArray(body)
+    ? body
+    : Array.isArray(raw.data)
+      ? raw.data
+      : Array.isArray(raw.models)
+        ? raw.models
+        : [];
+  const ids: string[] = [];
+  for (const item of list) {
+    if (typeof item === 'string') {
+      ids.push(item);
+    } else if (item && typeof item === 'object') {
+      const o = item as { id?: unknown; model?: unknown; name?: unknown };
+      const id = o.id ?? o.model ?? o.name;
+      if (typeof id === 'string') ids.push(id);
+    }
+  }
+  return Array.from(new Set(ids));
+}
+
 function openBrowser(url: string) {
   const isWindows = process.platform === 'win32';
   if (isWindows) {
@@ -79,8 +165,9 @@ async function main() {
   // POST /api/profiles
   app.post('/api/profiles', (req, res) => {
     try {
-      const { name, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
+      const { name, displayName, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
         name: string;
+        displayName?: string;
         baseUrl: string;
         apiKey: string;
         model: string;
@@ -94,7 +181,18 @@ async function main() {
         res.status(400).json({ error: 'Missing required fields' });
         return;
       }
-      const profile: Profile = { name, baseUrl, model, opusModel, sonnetModel, haikuModel, protocol: protocol || 'anthropic', proxyChatCompletionsPath: proxyChatCompletionsPath || undefined, createdAt: new Date().toISOString() };
+      const profile: Profile = {
+        name,
+        displayName: displayName?.trim() || undefined,
+        baseUrl,
+        model,
+        opusModel,
+        sonnetModel,
+        haikuModel,
+        protocol: protocol || 'anthropic',
+        proxyChatCompletionsPath: proxyChatCompletionsPath || undefined,
+        createdAt: new Date().toISOString(),
+      };
       saveProfile(profile, apiKey);
       console.log(`[i] Profile created: ${name} (model: ${model}, protocol: ${protocol || 'anthropic'})`);
       res.json({ ok: true });
@@ -106,7 +204,8 @@ async function main() {
   // PUT /api/profiles/:name — update profile
   app.put('/api/profiles/:name', (req, res) => {
     try {
-      const { baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
+      const { displayName, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
+        displayName?: string;
         baseUrl?: string;
         apiKey?: string;
         model?: string;
@@ -125,6 +224,7 @@ async function main() {
       }
       const updated: Profile = {
         ...existing,
+        displayName: displayName !== undefined ? (displayName.trim() || undefined) : existing.displayName,
         baseUrl: baseUrl ?? existing.baseUrl,
         model: model ?? existing.model,
         opusModel: opusModel !== undefined ? (opusModel || undefined) : existing.opusModel,
@@ -137,6 +237,52 @@ async function main() {
       saveProfile(updated, apiKey ?? existingKey ?? '');
       console.log(`[i] Profile updated: ${profileName} (model: ${updated.model}, protocol: ${updated.protocol || 'anthropic'})`);
       res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
+  // GET /api/profiles/:name/key — return stored API key (dashboard is localhost-only)
+  app.get('/api/profiles/:name/key', (req, res) => {
+    try {
+      const name = req.params.name;
+      const key = getProfileApiKey(name);
+      if (key === undefined) {
+        res.status(404).json({ error: 'Profile or key not found' });
+        return;
+      }
+      res.json({ apiKey: key });
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
+  // POST /api/profiles/test — test API key + fetch model list in one shot.
+  // Body: { baseUrl, protocol, apiKey?, profileName? } — apiKey falls back to
+  // the stored key for `profileName` when omitted (used by the edit form).
+  app.post('/api/profiles/test', async (req, res) => {
+    try {
+      const { baseUrl, protocol, apiKey, profileName } = req.body as {
+        baseUrl: string;
+        protocol: 'anthropic' | 'openai';
+        apiKey?: string;
+        profileName?: string;
+      };
+      if (!baseUrl || !protocol) {
+        res.status(400).json({ error: 'baseUrl and protocol required' });
+        return;
+      }
+      const effectiveKey =
+        apiKey?.trim() ||
+        (profileName ? getProfileApiKey(profileName) : undefined) ||
+        '';
+      if (!effectiveKey) {
+        res.status(400).json({ error: 'No API key available' });
+        return;
+      }
+
+      const result = await testProviderKey(baseUrl, effectiveKey, protocol);
+      res.json(result);
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }

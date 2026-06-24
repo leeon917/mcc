@@ -25,12 +25,13 @@ function getFlag(args: string[], flag: string): string | undefined {
 export async function cmdProfileAdd(args: string[]): Promise<void> {
   const name = args[0];
   if (!name) {
-    console.error('[!] Usage: mcc profile add <name> --base-url <url> --api-key <key> --model <model> [--protocol anthropic|openai] [--opus-model <m>] [--sonnet-model <m>] [--haiku-model <m>]');
+    console.error('[!] Usage: mcc profile add <name> --base-url <url> --api-key <key> --model <model> [--display-name <label>] [--protocol anthropic|openai] [--opus-model <m>] [--sonnet-model <m>] [--haiku-model <m>]');
     process.exit(1);
   }
 
   const baseUrl = getFlag(args, '--base-url');
   const apiKey = getFlag(args, '--api-key');
+  const displayName = getFlag(args, '--display-name');
   const model = getFlag(args, '--model') ?? 'claude-sonnet-4-6';
   const protocol = (getFlag(args, '--protocol') as 'anthropic' | 'openai') ?? 'anthropic';
   const proxyChatCompletionsPath = getFlag(args, '--proxy-chat-completions-path');
@@ -47,6 +48,7 @@ export async function cmdProfileAdd(args: string[]): Promise<void> {
 
   const profile: Profile = {
     name,
+    displayName: displayName?.trim() || undefined,
     baseUrl,
     model,
     opusModel: getFlag(args, '--opus-model'),
@@ -63,6 +65,7 @@ export async function cmdProfileAdd(args: string[]): Promise<void> {
   syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name), name);
 
   console.log(`[OK] Profile created: ${name}`);
+  if (profile.displayName) console.log(`    Display name: ${profile.displayName}`);
   console.log(`    Base URL: ${baseUrl}`);
   console.log(`    Model: ${model}`);
   console.log(`    Protocol: ${protocol}`);
@@ -84,7 +87,8 @@ export async function cmdProfileList(): Promise<void> {
   console.log('Profiles:');
   for (const p of profiles) {
     const marker = p.name === defaultProfile ? ' (default)' : '';
-    console.log(`  ${p.name}${marker}`);
+    const label = p.displayName && p.displayName !== p.name ? ` — ${p.displayName}` : '';
+    console.log(`  ${p.name}${marker}${label}`);
     console.log(`    Base URL: ${p.baseUrl}`);
     console.log(`    Model: ${p.model}`);
     console.log(`    Protocol: ${p.protocol || 'anthropic'}`);

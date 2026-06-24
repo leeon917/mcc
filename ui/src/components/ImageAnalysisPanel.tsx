@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { McpConfig, ProviderPresets } from '@/lib/api';
+import { strings } from '@/lib/strings';
 
 interface ImageAnalysisPanelProps {
   config: McpConfig;
@@ -19,13 +20,14 @@ export function ImageAnalysisPanel({
   onToggleProvider,
   onUpdateField,
 }: ImageAnalysisPanelProps) {
+  const t = strings.imageAnalysis;
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Image Analysis</CardTitle>
-            <CardDescription>视觉模型 provider，第一个启用且填了 Key 的会被使用</CardDescription>
+            <CardTitle>{t.title}</CardTitle>
+            <CardDescription>{t.description}</CardDescription>
           </div>
           <Switch checked={config.imageAnalysis.enabled} onCheckedChange={onToggleSection} />
         </div>
@@ -41,7 +43,7 @@ export function ImageAnalysisPanel({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{preset.name}</p>
-                    <p className="text-xs text-muted-foreground">Format: {preset.format}</p>
+                    <p className="text-xs text-muted-foreground">{t.formatPrefix}{preset.format}</p>
                   </div>
                   <Switch
                     checked={provider.enabled}
@@ -52,7 +54,7 @@ export function ImageAnalysisPanel({
                 {provider.enabled && (
                   <div className="mt-3 space-y-3">
                     <div>
-                      <Label className="text-xs">Endpoint (Base URL)</Label>
+                      <Label className="text-xs">{t.endpointLabel}</Label>
                       <Input
                         placeholder={preset.baseUrl}
                         value={provider.baseUrl}
@@ -61,20 +63,20 @@ export function ImageAnalysisPanel({
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">API Key</Label>
+                      <Label className="text-xs">{t.apiKeyLabel}</Label>
                       <Input
                         type="password"
-                        placeholder="Enter API key..."
+                        placeholder={t.apiKeyPlaceholder}
                         value={provider.apiKey}
                         onChange={(e) => onUpdateField(id, 'apiKey', e.target.value)}
                         className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Model</Label>
+                      <Label className="text-xs">{t.modelLabel}</Label>
                       <Input
                         list={datalistId}
-                        placeholder="Select or type model name..."
+                        placeholder={t.modelPlaceholder}
                         value={provider.model}
                         onChange={(e) => onUpdateField(id, 'model', e.target.value)}
                         className="mt-1"

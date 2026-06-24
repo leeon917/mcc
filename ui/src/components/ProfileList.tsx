@@ -1,13 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Ui } from '@/components/icons/Ui';
-import {
-  ProviderIcon,
-  getProviderAccent,
-  getProviderTint,
-  guessProviderId,
-} from '@/components/icons/ProviderIcon';
+import { Ui } from '@/design/icons/Ui';
+import { ProviderIcon } from '@/design/icons/ProviderIcon';
+import { getProviderAccent, getProviderTint, guessProviderId } from '@/lib/providers';
 import type { Profile } from '@/lib/api';
+import { strings } from '@/lib/strings';
 
 interface ProfileListProps {
   profiles: Profile[];
@@ -24,6 +21,7 @@ export function ProfileList({
   onSetDefault,
   onDelete,
 }: ProfileListProps) {
+  const t = strings.profileList;
   return (
     <Card>
       <CardHeader>
@@ -31,12 +29,12 @@ export function ProfileList({
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
               <Ui name="profile" size={18} className="text-arcade-lagoon" />
-              My Profiles
+              {t.title}
             </CardTitle>
             <CardDescription>
               {profiles.length === 0
-                ? '还没有 profile — 去 Templates 选一个开始吧。'
-                : `${profiles.length} 个已配置的 profile · 默认 ${currentProfile || '未指定'}`}
+                ? t.emptyDescription
+                : t.countDescription(profiles.length, currentProfile)}
             </CardDescription>
           </div>
         </div>
@@ -64,16 +62,17 @@ export function ProfileList({
 }
 
 function EmptyState() {
+  const t = strings.profileList;
   return (
     <div className="rounded-2xl border-2 border-dashed border-paper-300 bg-paper-50 px-6 py-10 text-center">
       <div className="mx-auto mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-ink-900 bg-arcade-sunshine">
         <Ui name="controller" size={24} className="text-ink-900" />
       </div>
-      <p className="font-pixel text-2xs uppercase tracking-widest text-ink-400">no profile yet</p>
+      <p className="font-pixel text-2xs uppercase tracking-widest text-ink-400">{t.emptyKicker}</p>
       <p className="mt-1 font-rounded text-base font-semibold text-ink-900">
-        从 Templates 标签页开始
+        {t.emptyTitle}
       </p>
-      <p className="mt-1 text-xs text-ink-400">挑一个 Provider，填 Key，就能在 Claude Code 里跑。</p>
+      <p className="mt-1 text-xs text-ink-400">{t.emptyHint}</p>
     </div>
   );
 }
@@ -87,6 +86,7 @@ interface ProfileRowProps {
 }
 
 function ProfileRow({ profile, isCurrent, onEdit, onSetDefault, onDelete }: ProfileRowProps) {
+  const t = strings.profileList;
   const providerId = guessProviderId(profile.baseUrl || '');
   const accent = getProviderAccent(providerId);
   const tint = getProviderTint(providerId);
@@ -111,7 +111,7 @@ function ProfileRow({ profile, isCurrent, onEdit, onSetDefault, onDelete }: Prof
             {isCurrent && (
               <span className="pixel-chip pixel-chip-success">
                 <Ui name="check-bold" size={9} />
-                default
+                {t.defaultChip}
               </span>
             )}
             <span className="pixel-chip">{profile.protocol || 'anthropic'}</span>
@@ -129,19 +129,19 @@ function ProfileRow({ profile, isCurrent, onEdit, onSetDefault, onDelete }: Prof
           <div className="mt-3 flex items-center gap-1">
             <Button size="sm" variant="ghost" onClick={onEdit}>
               <Ui name="edit" size={12} />
-              Edit
+              {t.edit}
             </Button>
             {!isCurrent && (
               <Button size="sm" variant="ghost" onClick={onSetDefault}>
                 <Ui name="pin" size={12} />
-                Set default
+                {t.setDefault}
               </Button>
             )}
             <span className="flex-1" />
             <button
               type="button"
               onClick={onDelete}
-              aria-label="Delete profile"
+              aria-label={t.deleteAria}
               className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-arcade-hibiscus/15 hover:text-arcade-hibiscus"
             >
               <Ui name="trash" size={14} />

@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { McpConfig, ProviderPresets } from '@/lib/api';
+import { strings } from '@/lib/strings';
 
 interface WebSearchPanelProps {
   config: McpConfig;
@@ -19,13 +20,14 @@ export function WebSearchPanel({
   onToggleProvider,
   onUpdateField,
 }: WebSearchPanelProps) {
+  const t = strings.webSearch;
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>WebSearch</CardTitle>
-            <CardDescription>Web 搜索提供商，按需启用一家或多家</CardDescription>
+            <CardTitle>{t.title}</CardTitle>
+            <CardDescription>{t.description}</CardDescription>
           </div>
           <Switch checked={config.websearch.enabled} onCheckedChange={onToggleSection} />
         </div>
@@ -50,10 +52,10 @@ export function WebSearchPanel({
                 </div>
                 {preset.needsApiKey && provider.enabled && (
                   <div className="mt-3">
-                    <Label className="text-xs">API Key</Label>
+                    <Label className="text-xs">{t.apiKeyLabel}</Label>
                     <Input
                       type="password"
-                      placeholder="Enter API key..."
+                      placeholder={t.apiKeyPlaceholder}
                       value={provider.apiKey || ''}
                       onChange={(e) => onUpdateField(id, 'apiKey', e.target.value)}
                       className="mt-1"

@@ -3,14 +3,16 @@ import { Sheet, SheetBody, SheetFooter, SheetHeader } from '@/components/ui/shee
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Ui } from '@/components/icons/Ui';
+import { Ui } from '@/design/icons/Ui';
+import { ProviderIcon } from '@/design/icons/ProviderIcon';
 import {
-  ProviderIcon,
   getProviderAccent,
   getProviderTint,
   type ProviderId,
-} from '@/components/icons/ProviderIcon';
+} from '@/lib/providers';
 import type { ProfilePreset } from '@/lib/api';
+import type { Protocol, PresetInstallArgs } from '@/types/domain';
+import { strings } from '@/lib/strings';
 
 /**
  * Templates module — gallery of pre-baked provider profiles. Click a card,
@@ -20,18 +22,13 @@ interface Props {
   presets: ProfilePreset[];
   existingProfileNames: string[];
   /** Resolves true on success, false on rejection */
-  onInstall: (args: {
-    name: string;
-    baseUrl: string;
-    apiKey: string;
-    model: string;
-    protocol: 'anthropic' | 'openai';
-  }) => Promise<boolean>;
+  onInstall: (args: PresetInstallArgs) => Promise<boolean>;
 }
 
 export function PresetGallery({ presets, existingProfileNames, onInstall }: Props) {
   const [query, setQuery] = useState('');
   const [activePreset, setActivePreset] = useState<ProfilePreset | null>(null);
+  const t = strings.presets;
 
   const { featured, recommended, alternative } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -55,12 +52,9 @@ export function PresetGallery({ presets, existingProfileNames, onInstall }: Prop
     <div className="space-y-8">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
-          <p className="section-kicker">▸ Templates</p>
-          <h2 className="section-title">挑一个 Provider，开打。</h2>
-          <p className="section-sub max-w-lg">
-            预置 {presets.length} 家国内外大模型 Provider —— 阿里通义、DeepSeek、Kimi、智谱、MiniMax、
-            小米 MiMo、OpenRouter… 选一个、填 Key、就能在 Claude Code 里跑。
-          </p>
+          <p className="section-kicker">{t.kickerLabel}</p>
+          <h2 className="section-title">{t.title}</h2>
+          <p className="section-sub max-w-lg">{t.description(presets.length)}</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Ui
@@ -69,7 +63,7 @@ export function PresetGallery({ presets, existingProfileNames, onInstall }: Prop
             className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
           />
           <Input
-            placeholder="搜索 provider / 模型…"
+            placeholder={t.searchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -79,27 +73,27 @@ export function PresetGallery({ presets, existingProfileNames, onInstall }: Prop
 
       {featured.length > 0 && (
         <PresetGroup
-          kicker="★ Featured"
-          title="主推 Provider"
-          subtitle="覆盖了大多数日常需求 — 直接选这几个就好。"
+          kicker={t.groupFeatured.kicker}
+          title={t.groupFeatured.title}
+          subtitle={t.groupFeatured.subtitle}
           presets={featured}
           onPick={setActivePreset}
         />
       )}
       {recommended.length > 0 && (
         <PresetGroup
-          kicker="◆ Recommended"
-          title="推荐选项"
-          subtitle="经过实战检验的稳定 Provider。"
+          kicker={t.groupRecommended.kicker}
+          title={t.groupRecommended.title}
+          subtitle={t.groupRecommended.subtitle}
           presets={recommended}
           onPick={setActivePreset}
         />
       )}
       {alternative.length > 0 && (
         <PresetGroup
-          kicker="▢ Alternative"
-          title="其他可选"
-          subtitle="国内域名 / 特殊用例 / 实验性后端。"
+          kicker={t.groupAlternative.kicker}
+          title={t.groupAlternative.title}
+          subtitle={t.groupAlternative.subtitle}
           presets={alternative}
           onPick={setActivePreset}
         />
@@ -110,8 +104,8 @@ export function PresetGallery({ presets, existingProfileNames, onInstall }: Prop
           <div className="font-pixel text-2xs uppercase tracking-widest text-ink-400">
             no_result.txt
           </div>
-          <p className="mt-2 font-rounded text-lg text-ink-900">没有匹配的 Provider</p>
-          <p className="mt-1 text-sm text-ink-400">试试别的关键词，或者直接在 Profiles 里手动添加。</p>
+          <p className="mt-2 font-rounded text-lg text-ink-900">{t.emptyTitle}</p>
+          <p className="mt-1 text-sm text-ink-400">{t.emptyHint}</p>
         </div>
       )}
 
@@ -156,6 +150,7 @@ interface CardProps {
 }
 
 function PresetCard({ preset, onPick }: CardProps) {
+  const t = strings.presets;
   const accent = getProviderAccent(preset.id as ProviderId);
   const tint = getProviderTint(preset.id as ProviderId);
 
@@ -197,7 +192,7 @@ function PresetCard({ preset, onPick }: CardProps) {
             {preset.name}
           </h4>
           {!preset.requiresApiKey && (
-            <span className="pixel-chip pixel-chip-success">No Key</span>
+            <span className="pixel-chip pixel-chip-success">{t.noKey}</span>
           )}
         </div>
         <p className="line-clamp-2 text-xs text-ink-400">{preset.description}</p>
@@ -215,7 +210,7 @@ function PresetCard({ preset, onPick }: CardProps) {
             className="inline-flex items-center gap-1 font-rounded text-xs font-semibold text-ink-900 transition-transform group-hover:translate-x-0.5"
             style={{ color: accent }}
           >
-            Insert coin
+            {t.insertCoin}
             <Ui name="arrow-right" size={12} />
           </span>
         </div>
@@ -250,13 +245,7 @@ interface InstallSheetProps {
   preset: ProfilePreset | null;
   existingNames: string[];
   onClose: () => void;
-  onInstall: (args: {
-    name: string;
-    baseUrl: string;
-    apiKey: string;
-    model: string;
-    protocol: 'anthropic' | 'openai';
-  }) => Promise<boolean>;
+  onInstall: (args: PresetInstallArgs) => Promise<boolean>;
 }
 
 function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: InstallSheetProps) {
@@ -267,6 +256,7 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
   const [revealKey, setRevealKey] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const t = strings.install;
 
   // Reset state whenever a new preset is opened
   useEffect(() => {
@@ -286,24 +276,24 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
 
   const accent = getProviderAccent(preset.id as ProviderId);
   const tint = getProviderTint(preset.id as ProviderId);
-  const protocol: 'anthropic' | 'openai' = inferProtocol(preset);
+  const protocol: Protocol = inferProtocol(preset);
 
   async function submit() {
     if (!preset) return;
     if (!name.trim()) {
-      setErr('Profile 名称不能为空');
+      setErr(t.errEmptyName);
       return;
     }
     if (existingNames.includes(name.trim())) {
-      setErr(`Profile "${name}" 已存在，请换个名字`);
+      setErr(t.errNameTaken(name));
       return;
     }
     if (preset.requiresApiKey && !apiKey.trim()) {
-      setErr('这个 Provider 需要 API Key');
+      setErr(t.errMissingKey);
       return;
     }
     if (!baseUrl.trim()) {
-      setErr('Base URL 不能为空');
+      setErr(t.errEmptyBaseUrl);
       return;
     }
     setErr(null);
@@ -317,11 +307,11 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
     });
     setInstalling(false);
     if (ok) onClose();
-    else setErr('安装失败，请稍后重试');
+    else setErr(t.errInstallFailed);
   }
 
   return (
-    <Sheet open={!!preset} onClose={onClose} label={`Install ${preset.name}`}>
+    <Sheet open={!!preset} onClose={onClose} label={t.sheetLabel(preset.name)}>
       <SheetHeader onClose={onClose} accent={accent}>
         <div className="flex items-center gap-3 pt-1">
           <div className="provider-halo" style={{ background: tint }}>
@@ -329,7 +319,7 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
           </div>
           <div>
             <p className="font-pixel text-2xs uppercase tracking-widest text-ink-400">
-              install · {preset.id}
+              {t.titlePrefix}{preset.id}
             </p>
             <h3 className="font-rounded text-xl font-bold tracking-tight text-ink-900">
               {preset.name}
@@ -340,7 +330,7 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
       </SheetHeader>
 
       <SheetBody className="space-y-4">
-        <FormRow label="Profile 名称" hint="登录命令里使用的别名：mcc <name>">
+        <FormRow label={t.nameLabel} hint={t.nameHint}>
           <Input
             value={name}
             autoFocus
@@ -350,8 +340,8 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
         </FormRow>
 
         <FormRow
-          label="API Key"
-          hint={preset.requiresApiKey ? preset.apiKeyHint : '本地 / 无需 Key — 留空即可'}
+          label={t.apiKeyLabel}
+          hint={preset.requiresApiKey ? preset.apiKeyHint : t.apiKeyOptionalHint}
         >
           <div className="relative">
             <Input
@@ -374,20 +364,20 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
 
         <details className="rounded-xl border border-paper-300 bg-paper-50 px-3 py-2.5 text-sm">
           <summary className="cursor-pointer select-none font-rounded font-semibold text-ink-900">
-            <span className="mr-2">▸</span> 高级 — 自定义 Base URL / 模型
+            <span className="mr-2">▸</span> {t.advancedSummary}
           </summary>
           <div className="mt-3 space-y-3">
-            <FormRow label="Base URL">
+            <FormRow label={t.baseUrlLabel}>
               <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
             </FormRow>
-            <FormRow label="默认 Model">
+            <FormRow label={t.modelLabel}>
               <Input value={model} onChange={(e) => setModel(e.target.value)} />
             </FormRow>
             <div className="flex items-center gap-2 text-xs text-ink-400">
               <span className="pixel-chip pixel-chip-info">
-                {protocol === 'openai' ? 'OpenAI proxy' : 'Anthropic'}
+                {protocol === 'openai' ? t.protocolOpenai : t.protocolAnthropic}
               </span>
-              <span>协议根据 base URL 自动判定</span>
+              <span>{t.protocolHint}</span>
             </div>
           </div>
         </details>
@@ -399,11 +389,11 @@ function PresetInstallSheet({ preset, existingNames, onClose, onInstall }: Insta
 
       <SheetFooter>
         <Button variant="ghost" onClick={onClose} disabled={installing}>
-          取消
+          {t.cancel}
         </Button>
         <Button onClick={submit} disabled={installing}>
           <Ui name="rocket" size={14} />
-          {installing ? '安装中…' : '安装 Profile'}
+          {installing ? t.installing : t.install}
         </Button>
       </SheetFooter>
     </Sheet>
@@ -437,7 +427,7 @@ function uniqueName(base: string, existing: string[]): string {
   return `${base}-${i}`;
 }
 
-function inferProtocol(preset: ProfilePreset): 'anthropic' | 'openai' {
+function inferProtocol(preset: ProfilePreset): Protocol {
   // Anthropic-compatible endpoints terminate in /anthropic; everything else
   // (including OpenRouter, HuggingFace, DashScope OpenAI mode, llama.cpp,
   // BigModel /v4, Ollama local) goes through the translator proxy.

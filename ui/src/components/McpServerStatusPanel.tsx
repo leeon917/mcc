@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import type { McpServer } from '@/lib/api';
+import { strings } from '@/lib/strings';
 
 interface McpServerStatusPanelProps {
   servers: McpServer[];
@@ -8,11 +9,12 @@ interface McpServerStatusPanelProps {
 }
 
 export function McpServerStatusPanel({ servers, onToggle }: McpServerStatusPanelProps) {
+  const t = strings.mcpStatus;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>MCP Server Status</CardTitle>
-        <CardDescription>当前 session 中已启用的 MCP server</CardDescription>
+        <CardTitle>{t.title}</CardTitle>
+        <CardDescription>{t.description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -27,7 +29,7 @@ export function McpServerStatusPanel({ servers, onToggle }: McpServerStatusPanel
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">
-                  {server.enabled ? 'Enabled' : 'Disabled'}
+                  {server.enabled ? t.enabled : t.disabled}
                 </span>
                 <Switch
                   checked={server.enabled}

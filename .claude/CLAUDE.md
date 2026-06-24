@@ -72,7 +72,27 @@ lib/
 ├── mcp-hooks/                 # MCP runtime hook 文件
 ├── external-mcp-servers.json  # 用户添加的外部 MCP 定义
 ├── mcp-config.json            # WebSearch/ImageAnalysis provider 配置
-└── proxy/                     # Proxy PID/session 文件
+├── proxy/                     # Proxy PID/session 文件
+└── logs/                      # 运行时日志（功能→时间两级分区）
+    └── <profile>/
+        ├── sessions/<YYYY-MM-DD_HH-MM-SS>/mcc.log  # 每次 mcc launch 一个目录
+        └── proxy/<YYYY-MM-DD>/mcc.log               # proxy daemon，按天分目录
+```
+
+## 排查 Bug
+
+遇到 MCC 运行时问题时，使用本项目的 `mcc-debug` skill（`.claude/skills/mcc-debug/SKILL.md`）：它会自动定位相关日志、区分错误类型、给出修复建议。
+
+**快速入口**：
+```bash
+# 查看最新 session 日志（主进程）
+cat ~/.mcc/logs/<profile>/sessions/$(ls -t ~/.mcc/logs/<profile>/sessions/ | head -1)/mcc.log
+
+# 查看 proxy 日志（openai 协议 profile 专有）
+cat ~/.mcc/logs/<profile>/proxy/$(ls -t ~/.mcc/logs/<profile>/proxy/ | head -1)/mcc.log
+
+# 开 debug 级别，看发给上游的完整请求体
+MCC_LOG_LEVEL=debug mcc <profile>
 ```
 
 ## 开发

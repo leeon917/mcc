@@ -26,6 +26,8 @@ mcc mcp add --name <id> --command <cmd>  # 添加外部 MCP 工具
 mcc mcp remove <name>           # 删除外部 MCP 工具
 mcc mcp enable <name> <profile> # 启用外部 MCP（指定 profile）
 mcc mcp disable <name> <profile> # 禁用外部 MCP
+mcc mcp import-global <profile>  # 一键导入全局 ~/.claude.json 的 MCP 到该 profile
+mcc mcp import-global --all-profiles  # 同步到所有 profile（默认跳过 mcc-*/ccs-*；支持 http/sse）
 mcc config                       # 打开 Web 配置控制台
 ```
 
@@ -74,7 +76,7 @@ src/
 ├── commands/                   # 每个 mcc 子命令一个文件
 │   ├── launch.ts               #   mcc <profile>
 │   ├── profile.ts              #   mcc profile add|list|remove|default
-│   └── mcp.ts                  #   mcc mcp list|add|remove|enable|disable
+│   └── mcp.ts                  #   mcc mcp list|add|remove|enable|disable|import-global
 ├── accounts/
 │   ├── store.ts                # Profile 元数据
 │   ├── instance-manager.ts     # CLAUDE_CONFIG_DIR 隔离

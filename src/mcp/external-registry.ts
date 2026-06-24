@@ -13,9 +13,14 @@ export interface ExternalMcpServer {
   name: string; // unique identifier, e.g. "minimax-plan"
   displayName: string;
   description: string;
-  command: string; // e.g. "uvx"
-  args: string[]; // e.g. ["minimax-coding-plan-mcp", "-y"]
-  envVars: Record<string, string>; // e.g. { MINIMAX_API_KEY: "${MCC_PROVIDER_KEY:minimax}" }
+  type?: 'stdio' | 'http' | 'sse'; // transport; defaults to 'stdio' when absent
+  // stdio transport
+  command?: string; // e.g. "uvx"
+  args?: string[]; // e.g. ["minimax-coding-plan-mcp", "-y"]
+  envVars?: Record<string, string>; // e.g. { MINIMAX_API_KEY: "${MCC_PROVIDER_KEY:minimax}" }
+  // http / sse transport
+  url?: string; // e.g. "https://example.com/mcp"
+  headers?: Record<string, string>;
   enabledByDefault: boolean;
 }
 

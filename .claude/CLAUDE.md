@@ -119,6 +119,8 @@ mcc mcp add --name <id> --command <cmd> [--display-name...] [--args...] [--provi
 mcc mcp remove <name>           # 删除外部 MCP
 mcc mcp enable <name> <profile> # 在指定 profile 启用外部 MCP
 mcc mcp disable <name> <profile> # 在指定 profile 禁用外部 MCP
+mcc mcp import-global <profile>  # 把全局 ~/.claude.json 的 MCP 导入并启用到该 profile
+mcc mcp import-global --all-profiles [--only a,b] [--exclude a,b] [--include-ccs]  # 同步到所有 profile（默认跳过 mcc-*/ccs-*；支持 http/sse）
 mcc config                       # 打开 Web 配置控制台（端口 3000）
 mcc help                         # 显示帮助
 ```

@@ -7,10 +7,12 @@ import * as path from 'path';
 import type { ExternalMcpServer } from './external-registry';
 
 export interface McpServerConfig {
-  type: 'stdio' | 'http';
-  command: string;
+  type: 'stdio' | 'http' | 'sse';
+  command?: string;
   args?: string[];
   env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
   builtin?: boolean;
 }
 

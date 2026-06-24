@@ -24,6 +24,7 @@ import {
   cmdMcpRemove,
   cmdMcpEnable,
   cmdMcpDisable,
+  cmdMcpImportGlobal,
 } from './commands/mcp';
 
 function readPkgVersion(): string {
@@ -69,6 +70,12 @@ Examples:
   mcc profile test deepseek --vision   Also probe whether its model sees images
   mcc config              Open the Web config dashboard
 
+  mcc mcp list                                   List all MCP servers
+  mcc mcp import-global qwen                      Import global ~/.claude.json MCP into a profile
+  mcc mcp import-global --all-profiles            Import global MCP into every profile
+       [--only a,b] [--exclude a,b] [--include-ccs]   (default skips mcc-* and ccs-*)
+  mcc mcp enable <name> <profile>                 Enable an external MCP for a profile
+
   mcc update              Upgrade mcc to the latest version
   mcc update --check      Check for a new version without installing
   mcc update-check off    Disable the "update available" reminder (default: on)
@@ -110,6 +117,7 @@ async function dispatchMcp(args: string[]): Promise<void> {
     case 'remove': await cmdMcpRemove(args.slice(1)); break;
     case 'enable': await cmdMcpEnable(args.slice(1)); break;
     case 'disable': await cmdMcpDisable(args.slice(1)); break;
+    case 'import-global': await cmdMcpImportGlobal(args.slice(1)); break;
     default:
       console.error(`[!] Unknown mcp command: ${args[0]}`);
       showHelp();

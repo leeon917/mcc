@@ -119,3 +119,14 @@
 **修复**: 弃用 update-notifier，改自管缓存 + 原生 https（详见 decisions 同日条目）。`fetchLatest` 加 `background` 参数区分两条路：后台 unref、awaited 不 unref。
 
 **教训**: (1) "声称帮你做后台版本检查"的库未必真的写成了——别假设它在工作，要去缓存文件里核实结果有没有落盘。(2) `socket.unref()` 是把双刃剑：它解决"别拖住快命令"，但用在 await 的请求上会让进程在结果到手前静默退出。判断标准是"这次请求的结果有没有人等"——有人 await 就别 unref。
+
+## 2026-06-24 18:54:48 +00:00: 图像识别「全用不了」真因在调用层，不在后端
+
+**现象**: 所有 profile（deepseek/qwen/glm…）图像识别都失效。
+
+**排查**: 先把后端逐项验证——5 个 vision provider 的 key+endpoint 直接 curl 全部 200，image-analysis-runtime 端到端跑真实图片也正常返回识图结果。**后端全好**。问题在「谁来触发识图」这一层，三个坑叠加：
+1. **没有任何 hook 自动拦截读图**：仓库有 `image-analyzer-transformer.cjs`（PreToolUse hook，拦 `Read` 图片转识图），但全代码没有任何地方把它写进 settings.json，从没装上。
+2. **MCC 不给模型「该用识图工具」的引导**：识图唯一入口是 MCP 工具 `ImageAnalysis`，要靠上游模型自己决定调它。对比老 CCS，它启动 claude 时带 `--append-system-prompt`「优先用 ImageAnalysis 而非 Read」；MCC 的 `launch.ts` 直接 `spawn('claude', args)`，零注入。弱上游大概率还是用 Read 或看不见图；尤其**粘贴的 inline 图**变成 base64 直发文本模型，没有文件路径，`ImageAnalysis`（必须传 filePath）根本插不进去。
+3. **openai profile 还把识图指错地方**：`launch.ts` 对 openai 协议把 `MCC_IMAGE_ANALYSIS_RUNTIME_BASE_URL` 覆写成本地翻译 proxy（指向 chat 文本模型）。旧 runtime 只认这个 legacy 变量，于是 qwen/glm 识图被发去文本模型。0.2.0 runtime 因优先走 PROVIDERS 链能绕开，但旧版（0.1.9）绕不开。
+
+**教训**: (1) 识图是否可用要分「后端连通」与「调用触发」两层查，先确认是哪一层——别一上来就怀疑 key/endpoint。(2) 一个能力靠「上游模型自愿调 MCP 工具」实现时，本质不可靠；要么注入系统提示强引导，要么上 hook 拦截，inline 粘贴图还得在 proxy 翻译层把 image block 拆出来转交 vision provider。

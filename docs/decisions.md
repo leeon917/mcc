@@ -158,3 +158,14 @@
 - 移除 `update-notifier` 依赖，清掉 ~713 行 lockfile（boxen/chalk/configstore 等）。
 
 `mcc update` 升级命令与 `mcc update-check on/off` 开关不变。**部署边界**：旧版本（≤0.1.9）内置的是坏掉的旧检查，本修复只在包含它的版本（≥下次发布）生效——首次需手动 `mcc update` 跨过去一次，之后才自动可靠提醒。详见 lessons 同日条目里的三个陷阱。
+
+## 2026-06-24 18:54:48 +00:00: 外部 MCP registry 支持 http/sse + 新增 `mcc mcp import-global`
+
+背景：`ExternalMcpServer` 原本只建模 stdio（`command`/`args`/`envVars`），无法表达 http/sse（url）类 MCP。为支持「一键把全局 `~/.claude.json` 的 MCP 同步进指定 profile」，做了两件事：
+
+- **schema 扩展**：`ExternalMcpServer` 与 `McpServerConfig` 加可选 `type`（`stdio|http|sse`）/`url`/`headers`，stdio 字段全部转为可选；`syncInstanceMcpServers` 按 transport 分支输出（http/sse → `{type,url,headers}`，stdio → `{type,command,args,env}`）。
+- **新命令** `mcc mcp import-global <profile> | --all-profiles [--only a,b] [--exclude a,b] [--include-ccs]`：读全局 `~/.claude.json` 的 `mcpServers`，默认跳过 `mcc-*` 内置与 `ccs-*`（CCS 自带，MCC 已有等价内置），写进 external registry 并在目标 profile 的 `external-mcp-enabled.json` 启用。
+
+**关键约束**：导入必须经 registry + `external-mcp-enabled.json`，**不能**手改 instance 的 `.claude.json`——因为 `launch.ts` 每次启动都调 `syncInstanceMcpServers` 整体覆写 `mcpServers`，手改会被抹掉。registry 路径下每次 sync 都重新写回，故能跨重启存活。
+
+**部署边界**：http MCP 的正确 emit 依赖新版 sync 代码——旧二进制（≤0.2.0）会把 http server 当 stdio 输出成 `{command:undefined}` 而坏掉；stdio server（如 mcp-ssh / js-reverse）不受影响。

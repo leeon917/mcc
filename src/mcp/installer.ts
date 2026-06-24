@@ -166,7 +166,7 @@ function resolveEnvVar(value: string): string {
  */
 function resolveExternalServerEnv(server: ExternalMcpServer): Record<string, string> {
   const resolved: Record<string, string> = {};
-  for (const [key, value] of Object.entries(server.envVars)) {
+  for (const [key, value] of Object.entries(server.envVars ?? {})) {
     resolved[key] = resolveEnvVar(value);
   }
   return resolved;
@@ -198,14 +198,25 @@ export function syncInstanceMcpServers(
       // Built-in server (has config field)
       mcpServers[name] = server.config;
     } else {
-      // External server (ExternalMcpServer)
+      // External server (ExternalMcpServer) — branch on transport.
       const external = server as ExternalMcpServer;
-      mcpServers[name] = {
-        type: 'stdio',
-        command: external.command,
-        args: external.args,
-        env: resolveExternalServerEnv(external),
-      };
+      const transport = external.type ?? 'stdio';
+      if (transport === 'http' || transport === 'sse') {
+        mcpServers[name] = {
+          type: transport,
+          url: external.url,
+          ...(external.headers && Object.keys(external.headers).length > 0
+            ? { headers: external.headers }
+            : {}),
+        };
+      } else {
+        mcpServers[name] = {
+          type: 'stdio',
+          command: external.command,
+          args: external.args ?? [],
+          env: resolveExternalServerEnv(external),
+        };
+      }
     }
   }
 

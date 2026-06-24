@@ -106,3 +106,16 @@
 - 运行时：`model-router` 同时注入 `CLAUDE_CODE_EFFORT_LEVEL` + `MAX_THINKING_TOKENS`，保证 CC 默认带上思考字段（adaptive 或 enabled，kimi 两者都收）。详见 decisions 同日条目。
 
 **教训**: (1) 给第三方 Anthropic 兼容模型做连通性测试，不能假设"最小请求"通用——有的模型对 `thinking` 有强制约束，测试要能按错误信息自适应重试。(2) provider 的怪癖往往同时影响"测试"和"运行时"两条路，定位时要追问运行时是否也中招，别只修了表面的测试。
+
+## 2026-06-24 18:51:50 +00:00: update-notifier 后台检查不可靠 & 自实现版本检查的两个陷阱
+
+**现象**: 用户发了新包（0.2.0 已上 npm），但本地 `mcc`（装的 0.1.9）启动时从不弹"有新版本"提醒。
+
+**真相（三个独立坑）**:
+1. **`update-notifier` 的后台 detached 子进程实测不向 configstore 持久化结果** —— configstore 里只有 `lastUpdateCheck`、永远没有 `update` 字段，所以"启动自动弹"形同虚设。叠加它"一天只查一次 + 延迟一轮才弹"的设计，刚发包后几乎必然不弹。而同步 `fetchInfo()` 反而正常返回 `{latest, current, type}`——问题只在那条后台链路。
+2. **npm registry 的 `/latest` 端点不接受简化元数据头** `Accept: application/vnd.npm.install-v1+json`，会返回 **406 Not Acceptable**——该头只对完整 packument（`/<pkg>`）有效。`/latest` 用默认 Accept 即可拿到含 `.version` 的 manifest。
+3. **用原生 https 自查时，`await` 的路径不能 `unref` socket**：promise 挂起期间 unref'd socket 是唯一保活句柄，Node 会在 fetch 完成前以 **exit 0 静默退出**，表现为命令"啥都不打印就退出"。只有后台 fire-and-forget 路径（防止拖住 `mcc -v`）才该 unref。
+
+**修复**: 弃用 update-notifier，改自管缓存 + 原生 https（详见 decisions 同日条目）。`fetchLatest` 加 `background` 参数区分两条路：后台 unref、awaited 不 unref。
+
+**教训**: (1) "声称帮你做后台版本检查"的库未必真的写成了——别假设它在工作，要去缓存文件里核实结果有没有落盘。(2) `socket.unref()` 是把双刃剑：它解决"别拖住快命令"，但用在 await 的请求上会让进程在结果到手前静默退出。判断标准是"这次请求的结果有没有人等"——有人 await 就别 unref。

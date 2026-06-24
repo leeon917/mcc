@@ -13,7 +13,7 @@ export interface MccConfig {
   packageManager?: 'npm' | 'pnpm' | 'yarn' | 'bun';
 }
 
-function getMccHome(): string {
+export function getMccHome(): string {
   return process.env.MCC_HOME ?? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '~', '.mcc');
 }
 

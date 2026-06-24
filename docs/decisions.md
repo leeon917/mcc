@@ -146,3 +146,15 @@
 - kimi-k2.7-code 这类强制思考的模型，若用户在 CC 里把思考**完全关掉**（CC 省略 thinking 字段），直连无 proxy 补字段，仍会 400 —— 固有边界，正常（思考开着）不触发。
 
 **全部 profile 同步升到当期最高编程模型**: xiaomi=mimo-v2.5-pro / qwen=qwen3-max-2026-01-23 / deepseek=deepseek-v4-pro / kimi=kimi-k2.7-code / glm=glm-5.2 / siliconflow=DeepSeek-V4-Pro；openrouter 按用户意愿保持免费且 `reasoningEffort:off`（不注入思考）。preset catalog 同步更新。
+
+## 2026-06-24 18:51:50 +00:00: 弃用 update-notifier，改自管原生 https 版本检查
+
+启动时的"有新版本"提醒原用 `update-notifier`，但其后台 detached 子进程在实测中从不向 configstore 写入结果，叠加"一天只查一次 + 延迟一轮才弹"，导致刚发包后几乎永远不弹（用户从没见过更新提醒）。
+
+改为自管方案：
+- 缓存 `~/.mcc/update-cache.json`（`{lastCheck, latest}`）+ Node 原生 https 直查 `registry.npmjs.org/<pkg>/latest` 读 `.version`，无第三方依赖、无 detached 子进程。
+- 启动 `checkForUpdates`：缓存已知更新 → **当次**弹（注册在 `process.on('exit')`，落在 Claude TUI 关闭后的干净 shell 提示符上）；缓存过期（>1h）→ 后台 fire-and-forget 刷新，socket `unref` 防止拖住 `mcc -v`。`mcc <profile>` 启动后 Node 挂着等 claude，fetch 有时间跑完写缓存。
+- `mcc update --check` 同步路径也改用自家 `fetchLatest`（**不** unref，否则 await 期间提前 exit 0）。
+- 移除 `update-notifier` 依赖，清掉 ~713 行 lockfile（boxen/chalk/configstore 等）。
+
+`mcc update` 升级命令与 `mcc update-check on/off` 开关不变。**部署边界**：旧版本（≤0.1.9）内置的是坏掉的旧检查，本修复只在包含它的版本（≥下次发布）生效——首次需手动 `mcc update` 跨过去一次，之后才自动可靠提醒。详见 lessons 同日条目里的三个陷阱。

@@ -1,11 +1,22 @@
 /**
  * Update checker + one-shot upgrade command.
  *
- * - checkForUpdates() runs at startup. It defers to `update-notifier`, which
- *   forks a child to query the npm registry and caches the result for a day.
- *   The notification is printed on the NEXT run (defer:false here makes it
- *   print at process exit of the current run if a cached result is already
- *   present).
+ * Why not `update-notifier`? Its background-check path proved unreliable here:
+ * the detached child it spawns to query the registry never persisted a result
+ * to configstore, so the "update available" banner effectively never fired —
+ * and even when it works it's deferred by one run and rate-limited to once/day,
+ * so a freshly published version isn't noticed for up to a day. We replaced it
+ * with a self-managed check:
+ *
+ * - checkForUpdates() runs at startup. It reads a small cache
+ *   (~/.mcc/update-cache.json). If the cache already knows a newer version, the
+ *   banner prints on THIS run (registered at process 'exit' so it lands on the
+ *   clean shell prompt after Claude's TUI closes — not buried under it). If the
+ *   cache is stale, it kicks off an in-process registry fetch that writes the
+ *   cache. The fetch's socket is unref'd, so it never delays a fast command
+ *   like `mcc -v`; on the long-lived `mcc <profile>` launch path the spawned
+ *   `claude` keeps the event loop alive, so the fetch completes and the cache
+ *   refreshes for next time.
  *
  * - runUpdate() detects how the binary was installed (npm/pnpm/yarn/bun) and
  *   invokes the matching `add -g` command. Detection is a path heuristic; the
@@ -13,38 +24,149 @@
  */
 
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as https from 'https';
 import * as path from 'path';
 import pc from 'picocolors';
-import updateNotifier from 'update-notifier';
-import { isUpdateCheckEnabled, readConfig, writeConfig } from './shared/config';
+import { getMccHome, isUpdateCheckEnabled, readConfig, writeConfig } from './shared/config';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
 const PKG_NAME = '@hileeon/mcc';
+
+// How long a cached registry result is trusted before we refresh in the
+// background. The refresh is free (backgrounded + unref'd), so this is just a
+// politeness throttle on registry hits, not a freshness ceiling the user feels.
+const CHECK_INTERVAL_MS = 1000 * 60 * 60; // 1 hour
+
+interface UpdateCache {
+  lastCheck: number;
+  latest: string;
+}
+
+function getCachePath(): string {
+  return path.join(getMccHome(), 'update-cache.json');
+}
+
+function readCache(): UpdateCache | null {
+  try {
+    return JSON.parse(fs.readFileSync(getCachePath(), 'utf8')) as UpdateCache;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(cache: UpdateCache): void {
+  try {
+    const home = getMccHome();
+    if (!fs.existsSync(home)) fs.mkdirSync(home, { recursive: true });
+    fs.writeFileSync(getCachePath(), JSON.stringify(cache));
+  } catch {
+    // Cache is best-effort; a write failure just means we re-check next run.
+  }
+}
+
+/** Strict-enough semver compare for this project's plain x.y.z versions. */
+function parseVersion(v: string): number[] {
+  return v.split('-')[0].split('.').map((n) => parseInt(n, 10) || 0);
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const a = parseVersion(latest);
+  const b = parseVersion(current);
+  for (let i = 0; i < 3; i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x > y) return true;
+    if (x < y) return false;
+  }
+  return false;
+}
+
+/**
+ * Fetch the latest published version straight from the npm registry over native
+ * https — no transitive dependency, no detached child. Resolves to null on any
+ * failure (offline, registry error, timeout).
+ *
+ * `background: true` unref's the socket so a pending request never keeps a
+ * fast-exiting command (e.g. `mcc -v`) alive — used by the startup check, where
+ * the result is fire-and-forget. The awaited `mcc update --check` path must NOT
+ * unref: with the promise suspended, an unref'd socket is the only thing left to
+ * keep the loop alive, so Node would exit 0 before the fetch resolves.
+ */
+function fetchLatest(opts: { timeoutMs?: number; background?: boolean } = {}): Promise<string | null> {
+  const { timeoutMs = 5000, background = false } = opts;
+  return new Promise((resolve) => {
+    // The `/latest` endpoint returns the latest dist-tag's manifest, which has
+    // `.version`. Note: do NOT send the abbreviated-metadata Accept header here —
+    // that content-type only applies to the full packument, and `/latest`
+    // answers it with 406 Not Acceptable.
+    const url = `https://registry.npmjs.org/${PKG_NAME.replace('/', '%2F')}/latest`;
+    const req = https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return resolve(null);
+      }
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        try {
+          resolve((JSON.parse(body).version as string) ?? null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      resolve(null);
+    });
+    // For the background startup check, don't let an in-flight request hold the
+    // process open on its own. (Never unref on the awaited path — see above.)
+    if (background) req.on('socket', (s) => s.unref());
+  });
+}
+
+let bannerArmed = false;
+
+function armBanner(current: string, latest: string): void {
+  if (bannerArmed) return;
+  bannerArmed = true;
+  // Print at exit so it lands on the clean shell prompt — after Claude's
+  // full-screen TUI has closed — instead of scrolling away behind it.
+  process.on('exit', () => {
+    process.stderr.write(
+      '\n' +
+        `  ${pc.yellow('✨ Update available')} ${pc.dim(current)} → ${pc.green(latest)}\n` +
+        `     Run ${pc.cyan('mcc update')} to upgrade  ${pc.dim('·')}  ` +
+        `${pc.dim('silence with')} ${pc.cyan('mcc update-check off')}\n\n`,
+    );
+  });
+}
 
 export function checkForUpdates(currentVersion: string): void {
   if (!isUpdateCheckEnabled()) return;
   if (process.env.CI || process.env.MCC_NO_UPDATE_NOTIFIER) return;
 
   try {
-    const notifier = updateNotifier({
-      pkg: { name: PKG_NAME, version: currentVersion },
-      updateCheckInterval: 1000 * 60 * 60 * 24, // 1 day
-      shouldNotifyInNpmScript: false,
-    });
+    const cache = readCache();
 
-    if (notifier.update) {
-      notifier.notify({
-        defer: false,
-        isGlobal: true,
-        message:
-          `Update available ${pc.dim('{currentVersion}')} → ${pc.green('{latestVersion}')}\n` +
-          `Run ${pc.cyan('mcc update')} to upgrade\n` +
-          `${pc.dim('Disable with `mcc update-check off`')}`,
+    // If we already know about a newer version, surface it on this run.
+    if (cache?.latest && isNewer(cache.latest, currentVersion)) {
+      armBanner(currentVersion, cache.latest);
+    }
+
+    // Refresh in the background when the cache is missing or stale. Fire and
+    // forget — unref'd, so it never delays exit.
+    const stale = !cache || Date.now() - cache.lastCheck > CHECK_INTERVAL_MS;
+    if (stale) {
+      void fetchLatest({ background: true }).then((latest) => {
+        if (latest) writeCache({ lastCheck: Date.now(), latest });
       });
     }
   } catch {
-    // Network failures, registry errors, etc. — never block the CLI.
+    // Never let the update check block or crash the CLI.
   }
 }
 
@@ -81,24 +203,20 @@ export async function runUpdate(opts: { checkOnly?: boolean; pmOverride?: Packag
   const pm = opts.pmOverride ?? detectPackageManager();
 
   if (opts.checkOnly) {
-    // Force a synchronous check by asking update-notifier directly. We do this
-    // via fetchInfo() so we don't depend on the deferred notification path.
-    const notifier = updateNotifier({
-      pkg: { name: PKG_NAME, version: getOwnVersion() },
-      updateCheckInterval: 0,
-    });
-    try {
-      const info = await notifier.fetchInfo();
-      if (info.type === 'latest') {
-        console.log(`${pc.green('✓')} mcc is up to date (${info.current})`);
-      } else {
-        console.log(`${pc.yellow('!')} Update available: ${pc.dim(info.current)} → ${pc.green(info.latest)}`);
-        console.log(`  Run ${pc.cyan('mcc update')} to upgrade`);
-      }
-    } catch (e) {
-      console.error(`[!] Could not reach the npm registry: ${(e as Error).message}`);
+    const current = getOwnVersion();
+    const latest = await fetchLatest();
+    if (latest === null) {
+      console.error(`[!] Could not reach the npm registry.`);
       process.exit(1);
     }
+    if (isNewer(latest, current)) {
+      console.log(`${pc.yellow('!')} Update available: ${pc.dim(current)} → ${pc.green(latest)}`);
+      console.log(`  Run ${pc.cyan('mcc update')} to upgrade`);
+    } else {
+      console.log(`${pc.green('✓')} mcc is up to date (${current})`);
+    }
+    // Keep the cache warm so the next launch reflects what we just learned.
+    writeCache({ lastCheck: Date.now(), latest });
     return;
   }
 
@@ -119,6 +237,8 @@ export async function runUpdate(opts: { checkOnly?: boolean; pmOverride?: Packag
   });
   child.on('exit', (code) => {
     if (code === 0) {
+      // Clear the stale "update available" cache so we don't nag post-upgrade.
+      writeCache({ lastCheck: Date.now(), latest: getOwnVersion() });
       console.log(`\n${pc.green('✓')} mcc upgraded. Run ${pc.cyan('mcc -v')} to confirm.`);
     } else {
       console.error(`\n[!] ${cmd} exited with code ${code}.`);

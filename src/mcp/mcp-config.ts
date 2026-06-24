@@ -75,18 +75,25 @@ const DEFAULT_CONFIG: McpConfig = {
         model: 'MiniMax-VL-01',
         format: 'anthropic',
       },
-      deepseek: {
-        enabled: false,
-        baseUrl: 'https://api.deepseek.com/anthropic',
-        apiKey: '',
-        model: 'deepseek-v4-pro',
-        format: 'anthropic',
-      },
       kimi: {
         enabled: false,
         baseUrl: 'https://api.moonshot.cn/v1',
         apiKey: '',
         model: 'moonshot-v1-128k-vision-preview',
+        format: 'openai',
+      },
+      glm: {
+        enabled: false,
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        apiKey: '',
+        model: 'glm-4.6v',
+        format: 'openai',
+      },
+      siliconflow: {
+        enabled: false,
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        apiKey: '',
+        model: 'Qwen/Qwen3-VL-30B-A3B-Instruct',
         format: 'openai',
       },
     },
@@ -167,30 +174,44 @@ export function getProviderPresets() {
         baseUrl: 'https://api.minimaxi.com/anthropic',
         models: ['MiniMax-VL-01'],
       },
-      deepseek: {
-        name: 'DeepSeek (V4 起原生 vision)',
-        format: 'anthropic' as const,
-        baseUrl: 'https://api.deepseek.com/anthropic',
-        models: ['deepseek-v4-pro', 'deepseek-v4-flash'],
-      },
       kimi: {
         name: 'Kimi (Moonshot)',
         format: 'openai' as const,
         baseUrl: 'https://api.moonshot.cn/v1',
         models: ['moonshot-v1-128k-vision-preview', 'moonshot-v1-32k-vision-preview'],
       },
+      glm: {
+        name: 'GLM (智谱 BigModel)',
+        format: 'openai' as const,
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        models: ['glm-4.6v', 'glm-4.5v', 'glm-4v-plus'],
+      },
+      siliconflow: {
+        name: 'SiliconFlow',
+        format: 'openai' as const,
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        models: ['Qwen/Qwen3-VL-30B-A3B-Instruct', 'Qwen/Qwen3-VL-32B-Instruct'],
+      },
     },
   };
 }
 
+/**
+ * Get every enabled image analysis provider, in config order. The runtime
+ * tries them in sequence (fallback chain): if the first 402s / errors, it
+ * moves on to the next. Only providers with both a key and a baseUrl qualify.
+ */
+export function getEnabledImageAnalysisProviders(
+  config: McpConfig,
+): Array<ImageAnalysisProvider & { id: string }> {
+  return Object.entries(config.imageAnalysis.providers)
+    .filter(([, p]) => p.enabled && p.apiKey && p.baseUrl)
+    .map(([id, p]) => ({ id, ...p }));
+}
+
 /** Get the first enabled image analysis provider config, or null */
 export function getActiveImageAnalysisProvider(config: McpConfig): (ImageAnalysisProvider & { id: string }) | null {
-  for (const [id, provider] of Object.entries(config.imageAnalysis.providers)) {
-    if (provider.enabled && provider.apiKey && provider.baseUrl) {
-      return { id, ...provider };
-    }
-  }
-  return null;
+  return getEnabledImageAnalysisProviders(config)[0] ?? null;
 }
 
 /** Get all enabled websearch provider IDs */

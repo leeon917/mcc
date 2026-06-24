@@ -34,6 +34,7 @@ mcc config                       # 打开 Web 配置控制台
 - **多 profile 管理**：API key 存 `~/.mcc/profiles/<name>/.key`，元数据存 `~/.mcc/profiles.json`
 - **实例隔离**：每个 profile 独立 `CLAUDE_CONFIG_DIR`，位于 `~/.mcc/instances/<name>/`
 - **OpenAI 兼容模式**：`--protocol openai` 时自动启动本地翻译 proxy（端口 43456-43555），转发 OpenAI 格式请求到 upstream Anthropic 兼容端点
+- **思考模式**：profile 支持 `reasoningEffort`，默认开启思考；强度以 Claude Code 自身的 `/effort`/Tab 为准并自动映射到各 provider，`reasoningEffort` 仅作兜底默认
 - **Tiered model**：profile 支持 `opusModel`/`sonnetModel`/`haikuModel` 三级模型切换
 - **内置 MCP**：`mcc-websearch`（多源搜索）和 `mcc-image-analysis`（图片/PDF 分析）
 - **外部 MCP**：通过 `mcc mcp add` 注册第三方 MCP server，支持 `${MCC_PROVIDER_KEY:<providerId>}` 引用 provider API key

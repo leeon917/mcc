@@ -120,3 +120,29 @@
 详细踩坑链见 [lessons.md](lessons.md) 同日条目。
 
 ---
+
+## 2026-06-24 18:22:19 +00:00: 思考模式以 Claude Code 为真相源 + 每 profile reasoningEffort 兜底
+
+**背景**: 用户要求"编程用、默认开启思考、可配强度，且优先用 Claude Code 自身配置，非必要不在 MCC 里配"。各 provider 的思考参数互不兼容（Anthropic `thinking{enabled/adaptive,budget_tokens}` / OpenAI `reasoning_effort` / Qwen `enable_thinking+thinking_budget` / GLM `thinking{enabled}+reasoning_effort`），且部分模型强制要求思考（见 lessons 同日 kimi-k2.7-code 条目）。
+
+**决策**:
+
+1. 新增 profile 字段 `reasoningEffort`（`off|low|medium|high|max`，缺省 `high`）。它**不是**主控开关，而是"Claude Code 没给信号时的兜底默认"。
+
+2. **Claude Code 是思考的真相源**。`model-router` 启动时按 `reasoningEffort` 同时注入两个 CC env：
+   - `CLAUDE_CODE_EFFORT_LEVEL`（现代模型 adaptive 思考路径 → `output_config.effort`）
+   - `MAX_THINKING_TOKENS`（老/未知模型 legacy 路径 → `thinking{type:enabled,budget_tokens}`，effort→budget: low4096/medium8192/high16384/max32768）
+   两个都设，是因为 CC 对第三方未知 model id 走哪条路不确定；都铺好才能保证默认带上思考字段。`off` 时两者都不设。
+
+3. **anthropic 直连**: 不改请求，CC 发什么 provider 收什么（deepseek 读 effort；kimi/mimo 思考常开）。
+
+4. **openai 经 proxy**: proxy 改成 **hybrid** —— 读 CC 实际发来的信号决定 effort（`thinking.type=disabled`→off；`enabled`+`budget_tokens`→分桶；`adaptive`/无 → `output_config.effort` 否则 profile 默认），再**按上游 host 方言注入**（dashscope→`enable_thinking+thinking_budget`；bigmodel→`thinking{enabled}+reasoning_effort`，且 `tool_choice` 非 auto 一律 clamp 成 auto；generic→`reasoning_effort`，max/xhigh 降 high）。
+
+**结果**: CC 的 `/model` 切档（早有 `ANTHROPIC_DEFAULT_*_MODEL`）+ Tab 调思考档都自动映射到各 provider；MCC 的「思考强度」选择器退化为兜底默认，平时不用碰。
+
+**代价 / 边界**:
+- 方言靠 host 字符串匹配（沿用 upstream-url.ts `/v4` 特例的先例）。
+- Kimi/MiMo 思考是二元常开，强度档对它们 no-op。
+- kimi-k2.7-code 这类强制思考的模型，若用户在 CC 里把思考**完全关掉**（CC 省略 thinking 字段），直连无 proxy 补字段，仍会 400 —— 固有边界，正常（思考开着）不触发。
+
+**全部 profile 同步升到当期最高编程模型**: xiaomi=mimo-v2.5-pro / qwen=qwen3-max-2026-01-23 / deepseek=deepseek-v4-pro / kimi=kimi-k2.7-code / glm=glm-5.2 / siliconflow=DeepSeek-V4-Pro；openrouter 按用户意愿保持免费且 `reasoningEffort:off`（不注入思考）。preset catalog 同步更新。

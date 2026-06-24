@@ -88,3 +88,21 @@
 4. trusted publisher 配完务必确认**已保存**（页面状态变化）而非只是填了表单。
 
 详细决策见 [decisions.md](decisions.md) 同日条目。
+
+---
+
+## 2026-06-24 18:22:19 +00:00: kimi-k2.7-code 强制要求每个请求带 thinking，"无 thinking" 直接 400
+
+**现象**: Dashboard「测试 & 拉模型」对 kimi profile 报 `HTTP 400 — invalid thinking: only type=enabled is allowed for this model`。其它 anthropic 直连 provider（deepseek/xiaomi）同样的 ping 全 200，只有 kimi 炸。
+
+**真相**: `kimi-k2.7-code` 把思考做成**强制项**——请求里**必须**带 `thinking`，且只接受 `type:enabled` 或 `type:adaptive`；发"无 thinking 字段"或 `type:disabled` 一律 400。实测：无 thinking→400、`disabled`→400、`adaptive`→200、`enabled`→200。而测试的 ping 之前是最小化、不带 thinking 的请求，正好踩中。
+
+**两层影响（关键）**:
+1. 测试 ping 失败（表面现象）。
+2. **运行时**：kimi 是 anthropic 直连（无 proxy 改写请求体），如果 Claude Code 思考处于关闭态（默认会省略 thinking 字段），**真实对话也会每次 400**——光修测试不够。
+
+**修复**:
+- 测试 ping：先不带 thinking 试；遇到 message 含 "thinking" 的 400，自动带 `thinking:{type:"adaptive"}` 重试（`src/dashboard/server.ts` `pingMessages`）。
+- 运行时：`model-router` 同时注入 `CLAUDE_CODE_EFFORT_LEVEL` + `MAX_THINKING_TOKENS`，保证 CC 默认带上思考字段（adaptive 或 enabled，kimi 两者都收）。详见 decisions 同日条目。
+
+**教训**: (1) 给第三方 Anthropic 兼容模型做连通性测试，不能假设"最小请求"通用——有的模型对 `thinking` 有强制约束，测试要能按错误信息自适应重试。(2) provider 的怪癖往往同时影响"测试"和"运行时"两条路，定位时要追问运行时是否也中招，别只修了表面的测试。

@@ -129,6 +129,14 @@ mcc help                         # 显示帮助
 
 OpenAI 兼容 profile 启动时自动在 `127.0.0.1:43456-43555` 范围内启动一个 OpenAI→Anthropic 翻译 proxy，Claude Code 的请求经过本地 proxy 转发给 upstream OpenAI-compatible API。
 
+### 思考模式（reasoningEffort）
+
+每个 profile 可设 `reasoningEffort`（`off|low|medium|high|max`，缺省 `high`）。**思考以 Claude Code 为真相源**——用户的 `/effort` + Tab 调档自动映射到上游；`reasoningEffort` 只是 CC 没给信号时的兜底默认，非必要不用配。
+
+- 启动时 `model-router` 按强度注入 `CLAUDE_CODE_EFFORT_LEVEL`（adaptive 路径）+ `MAX_THINKING_TOKENS`（legacy 路径），保证默认带上思考字段（有的模型如 `kimi-k2.7-code` 强制要求 thinking，否则 400）。
+- **anthropic 直连**：不改请求，CC 发什么 provider 收什么。
+- **openai 经 proxy**：proxy 读 CC 实际发来的 `thinking`/`output_config.effort` 决定强度，再按上游 host 方言注入（dashscope→`enable_thinking`+`thinking_budget`；bigmodel→`thinking{enabled}`+`reasoning_effort`；generic→`reasoning_effort`）。
+
 ## MCP 工具
 
 内置两个 MCP server：

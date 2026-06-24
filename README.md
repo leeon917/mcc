@@ -19,6 +19,8 @@ mcc profile add <name>           # 添加 profile
 mcc profile list                 # 查看所有 profile
 mcc profile remove <name>       # 删除 profile
 mcc profile default [name]      # 设默认 profile
+mcc profile test [name...]       # 体检 profile（验 key + 余额）
+mcc profile test x --vision      # 额外探测主模型能否识图
 mcc mcp list                     # 查看可用 MCP 工具
 mcc mcp add --name <id> --command <cmd>  # 添加外部 MCP 工具
 mcc mcp remove <name>           # 删除外部 MCP 工具

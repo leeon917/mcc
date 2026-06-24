@@ -32,3 +32,59 @@
 
 **排查步骤**：遇到 API 错误时，先看 `~/.mcc/logs/<profile>/proxy/<today>/mcc.log`，ERROR 行会有完整的上游响应 body。
 
+
+---
+
+## 2026-06-24 17:33:18 +00:00: Anthropic 兼容第三方网关普遍不实现 `/v1/models`，导致测试功能全部误报失败
+
+**现象**：Dashboard 的"测试 & 拉模型"对所有 Anthropic 协议 profile（xiaomi / deepseek / kimi）一律报失败，错误是 `HTTP 404 Not Found`（openresty / url.not_found）。看起来像 key 全错或 base url 全错。
+
+**真相**：key 和配置都没问题。直接打这些网关的 `/v1/messages` 全部 200（deepseek 当时是 402 余额不足，也属 key 有效）。问题出在测试按钮的实现——旧逻辑用 `GET {base}/v1/models` 来"顺带验证 key"，但这些第三方 Anthropic 兼容网关**只实现了 `/v1/messages`，没有 `/v1/models` 列表接口**（只有官方 Anthropic API 才有，且是较晚才加的）。所以无论 key 对不对都 404 → 全线误报。
+
+**修复**（`src/dashboard/server.ts` `testProviderKey` / 新增 `testAnthropicKey` / `fetchAnthropicModels`）：
+1. Anthropic 协议改用 `POST /v1/messages` 的 1-token ping（即 profile 真正会用到的端点）来验证连接；
+2. `/v1/models` 降级为**可选的模型列表来源**——能拉到就显示，拉不到（404）不算失败；
+3. 错误按状态码区分：401/403 = key 无效、402 = key 有效但余额不足、404 = Base URL 错；
+4. 测试接口与前端补传 `model`（ping 需要 model）；OpenAI 协议（qwen/bigmodel）的 `GET /models` 本来就好用，保持不变。
+
+**教训**：给第三方 Anthropic 兼容网关做 health check / key 验证，只能依赖 `/v1/messages` 这个一定存在的端点，**不要假设官方 Anthropic API 的辅助端点（如 `/v1/models`）在第三方网关上也存在**。同理，验证 key 时优先打"实际会用到的那个端点"，而不是另选一个看似等价的接口。
+
+
+---
+
+## 2026-06-24 17:58:05 +00:00: DeepSeek V4 不支持识图（与 catalog 注释相反）；provider 是否识图必须用真图实测
+
+**现象**：`mcp-config.ts` 注释写 "DeepSeek（V4 起原生 vision）"，据此把 deepseek 配成识图 provider。
+
+**真相**：实测 deepseek-v4-pro 两个端点都**不识图**——anthropic `/v1/messages` 收到的图被当成 `[Unsupported Image]`（模型 thinking 里明写），openai `/v1/chat/completions` 直接 400 `unknown variant image_url, expected text`。已从识图预设/默认链中移除，并补上验证过的 `glm`(glm-4.6v) / `siliconflow`(Qwen3-VL) 预设。Kimi（kimi-k2.6 / moonshot-v1-*-vision）主模型则真能识图。
+
+**教训**：
+
+1. provider 是否支持 vision **必须用真图实测**，不要信文档/注释/模型名里的 "vision/omni" 字样。屡试不爽的探针：一张四象限定色图（左上红/右上绿/左下蓝/右下黄），模型答全 4 色才算真"看见"——纯文本模型会回"没看到图"或瞎编。`scripts/test-vision.mjs` 与 `mcc profile test --vision` 就是干这个的。
+2. 编程向文本模型（qwen3-coder / glm-5.2 / mimo-v2-pro / deepseek-v4）一律不识图，识图得另走识图 MCP 链或换该家的 VL 模型。
+
+**附（另一个吃时间的坑）**：长命 Dashboard 进程会与 CLI 抢 `~/.mcc/profiles.json`——浏览器侧 `DELETE /api/profiles/:name` 会删掉 CLI 刚加的 profile（特征：`profiles/<name>/` 没了但 `instances/<name>/` 还在 = `deleteProfile` 被调过，而非 `cmdProfileRemove`），`PUT /api/mcp-config` 会重写 mcp-config.json。**用 CLI 批量增改 profile 前先把 Dashboard 关掉**，否则会反复被 clobber。
+
+---
+
+## 2026-06-24 18:09:58 +00:00: npm OIDC Trusted Publishing 连环 4 坑
+
+**现象**: CI Release workflow 首次跑就 publish 失败，依次踩了 4 个坑、每个错误信息都把人往错方向带，排了很久才通。
+
+**4 个坑（按踩到的顺序）**:
+
+1. **E404（token 无权限）**：原 `pnpm publish` 用 `secrets.NPM_TOKEN`，但该 token 没有发布权限。**npm 会把 403 伪装成 404**（`Not Found - PUT .../@hileeon%2fmcc`），看起来像"包/scope 不存在"，其实是"你没权限"。已存在的包报 publish E404，第一反应应是查 token 权限，而非包名。
+2. **改走 trusted publishing 后还是 E404**：`actions/setup-node` 只要设了 `registry-url`，就会写一个 `.npmrc` 并把 `NODE_AUTH_TOKEN` 注入成占位值 `XXXXX-XXXXX-XXXXX-XXXXX`。npm 拿这个假 token 去认证 → 404，**永远走不到 OIDC**。修复：去掉 `registry-url`（OIDC 模式下根本不需要它，默认 registry 就是 npmjs.org）。
+3. **ENEEDAUTH（版本不够）**：trusted publishing 要求 **npm ≥ 11.5.1 + Node ≥ 22.14**。Node 22 自带的 npm 才 10.9.8，不会发起 OIDC。修复：Node 升 22 + `npm install -g npm@latest`（实测发布时 npm 11.17）。注意 setup-node 日志里打印的 `npm: 10.9.8` 是升级前的，要在 publish 前 `npm -v` 确认真实版本。
+4. **还是 ENEEDAUTH（网页没保存）**：npmjs.com 的 Trusted Publisher 表单字段填全了，但**没点 "Set up connection" 按钮**，等于没注册。判断依据：那块还显示成"可编辑表单 + Set up connection/Cancel 按钮"就是没保存；保存后会变成一条已建立的连接记录。
+
+**最终可用配置**: workflow 无 token、Node 22、`npm install -g npm@latest`、`npm publish`（不用 pnpm publish——pnpm 11 OIDC 有 404 回归 pnpm/pnpm#11513）；npm 网页注册 org `leeon917`/repo `mcc`/workflow `release.yml`/Environment **留空**/勾 Allow npm publish 并点 Set up connection。
+
+**通用教训**:
+
+1. **npm 的 E404 ≠ "不存在"**，多数时候是认证/权限问题（故意混淆以防探测）。
+2. OIDC 发布要彻底**清掉一切 token 痕迹**，包括 setup-node 因 `registry-url` 注入的占位 token——有任何 token 在，npm 就不走 OIDC。
+3. 升 npm 后别信旧日志里的版本号，发布前 `npm -v` 实测。
+4. trusted publisher 配完务必确认**已保存**（页面状态变化）而非只是填了表单。
+
+详细决策见 [decisions.md](decisions.md) 同日条目。

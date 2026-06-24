@@ -113,6 +113,7 @@ mcc profile add <name>           # 添加 profile
 mcc profile list                 # 列出所有 profile
 mcc profile remove <name>        # 删除 profile
 mcc profile default [name]       # 查询或设默认 profile
+mcc profile test [name...] [--vision]  # 体检 profile：验 key/余额，--vision 测主模型识图
 mcc mcp list                     # 列出所有 MCP server
 mcc mcp add --name <id> --command <cmd> [--display-name...] [--args...] [--provider-ref...]  # 添加外部 MCP
 mcc mcp remove <name>           # 删除外部 MCP

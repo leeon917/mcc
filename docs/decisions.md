@@ -87,3 +87,36 @@
 **影响范围**: 仅 Dashboard。`ui/src/**` + `src/dashboard-server.ts`（新增一个 GET 路由）+ `src/shared/provider-preset-catalog.ts`（删 `icon` 字段）。CLI、Profile 存储、MCP 注册表、proxy 全部零改动。
 
 ---
+
+## 2026-06-24 17:58:05 +00:00: 识图 MCP 从"单 provider"改为"多 provider 自动 fallback" + 新增 mcc profile test
+
+**背景**: `getActiveImageAnalysisProvider` 只取第一个 enabled 的识图 provider，无兜底；某 provider 402/限流就整条识图链路死。验 key 也只有 Dashboard 有，CLI 侧无自检手段。
+
+**关键选择**:
+
+1. **多 provider fallback 链**: model-router 把所有 enabled 识图 provider 序列化进 `MCC_IMAGE_ANALYSIS_PROVIDERS`(JSON)；runtime `analyzeWithRetry` 先走 provider 链，任一错误（402/鉴权/网络）顺次降级，旧单端点逻辑保留为 fallback（无该 env 时行为完全不变）。
+2. **新增 `mcc profile test [name...] [--vision]`**：三探针——`models`(拉 /v1/models 验鉴权，第三方网关 404 算中性不算失败) / `usable`(1-token 真实请求，专抓"key 有效但余额 0"如 DeepSeek 402) / `vision`(四象限定色图验主模型能否原生识图)。直连真实 upstream，不经本地 proxy。
+3. **openai 协议 profile 的识图直连**: provider 链各自带 baseUrl/key/format，不再被强制经本地翻译 proxy。
+
+**代价**: 识图链路对 openai profile 不再复用 profile 自身 upstream，各识图 provider 需单独配 key。
+
+**影响范围**: `src/mcp/mcp-config.ts`(新增 `getEnabledImageAnalysisProviders`) + `src/core/model-router.ts` + `lib/mcp-hooks/image-analysis-runtime.cjs` + 新增 `src/commands/profile-test.ts` / `src/shared/test-image.ts` / `scripts/test-vision.mjs`。
+
+---
+
+## 2026-06-24 18:09:58 +00:00: npm 发布从 NPM_TOKEN 切到 OIDC Trusted Publishing
+
+**背景**: CI 的 Release workflow 首次启用即 publish 失败（E404）。根因是 `NPM_TOKEN` 这种长命 token 易过期、要轮换、有泄露风险，且首次配错权限难排查（npm 把无权限的 403 伪装成 404）。
+
+**决策**: 弃用 `NPM_TOKEN` secret，改用 npm **Trusted Publishing（OIDC）**——CI 用 GitHub 的 OIDC 身份直接向 npm 证明"我是这个仓库"，零密钥、永不过期、自动带 provenance 签名。
+
+**约束 / 代价**:
+
+1. 要求 **Node ≥ 22.14**、**npm CLI ≥ 11.5.1**（workflow 里 Node 升到 22 + `npm install -g npm@latest`）。
+2. 发布步骤**不能用 `pnpm publish`**——pnpm 11 的 OIDC 有已知 404 回归（pnpm/pnpm#11513），故 install/build 仍用 pnpm，最后 `npm publish` 走 OIDC。
+3. **不能给 `actions/setup-node` 设 `registry-url`**——它会写一个带占位 token 的 `.npmrc`，npm 拿假 token 认证就不走 OIDC 了。
+4. 需在 npmjs.com 的包 Settings → Trusted Publisher 注册：org `leeon917` / repo `mcc` / workflow `release.yml` / Environment 留空 / 勾 Allow npm publish，**且必须点 "Set up connection" 保存**。
+
+详细踩坑链见 [lessons.md](lessons.md) 同日条目。
+
+---

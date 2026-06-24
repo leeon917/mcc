@@ -112,7 +112,7 @@ export async function cmdLaunch(args: string[]): Promise<void> {
   // Start translation proxy for OpenAI-compatible profiles
   if (profile.protocol === 'openai') {
     try {
-      const proxyInfo = await startProxy(profileName, profile.baseUrl, apiKey, profile.model, profile.proxyChatCompletionsPath);
+      const proxyInfo = await startProxy(profileName, profile.baseUrl, apiKey, profile.model, profile.proxyChatCompletionsPath, profile.reasoningEffort);
       env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyInfo.port}`;
       env.ANTHROPIC_AUTH_TOKEN = proxyInfo.authToken;
       // MCP image analysis also needs to go through the proxy

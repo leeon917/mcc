@@ -34,6 +34,7 @@ export interface ProxySession {
   baseUrl: string;
   startedAt: string;
   proxyChatCompletionsPath?: string;
+  reasoningEffort?: string;
 }
 
 function ensureProxyDir(): void {

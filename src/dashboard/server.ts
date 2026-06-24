@@ -56,36 +56,40 @@ interface ProviderTestResult {
 }
 
 /**
- * Hit the provider's models endpoint to verify the key and return the
- * available model list. One round-trip covers both "is this key valid?"
- * and "what models can I pick from?" — they share the same auth.
+ * Verify the key works and (best-effort) return the available model list.
  *
- *   Anthropic protocol → GET {base}/v1/models  (x-api-key + anthropic-version)
- *   OpenAI protocol    → GET {base}/models     (Authorization: Bearer)
+ *   OpenAI protocol    → GET {base}/models  (Authorization: Bearer). DashScope,
+ *                        bigmodel, etc. implement this, so it doubles as both
+ *                        the auth check and the model list.
+ *   Anthropic protocol → POST {base}/v1/messages with a 1-token ping. Most
+ *                        third-party Anthropic-compatible gateways (xiaomi,
+ *                        deepseek, kimi…) DO NOT implement GET /v1/models — it
+ *                        404s even with a perfectly valid key. The only
+ *                        endpoint they reliably expose is the one we actually
+ *                        use, /v1/messages, so we validate against that and
+ *                        treat /v1/models purely as an optional model-list
+ *                        source (its failure is non-fatal).
  */
 async function testProviderKey(
   baseUrl: string,
   apiKey: string,
-  protocol: 'anthropic' | 'openai'
+  protocol: 'anthropic' | 'openai',
+  model?: string
 ): Promise<ProviderTestResult> {
-  const start = Date.now();
   const trimmedBase = baseUrl.trim().replace(/\/+$/, '');
-  const url = protocol === 'anthropic' ? `${trimmedBase}/v1/models` : `${trimmedBase}/models`;
-  const headers: Record<string, string> =
-    protocol === 'anthropic'
-      ? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
-      : { Authorization: `Bearer ${apiKey}` };
+  if (protocol === 'anthropic') {
+    return testAnthropicKey(trimmedBase, apiKey, model);
+  }
 
+  const start = Date.now();
   try {
-    const resp = await fetch(url, { method: 'GET', headers });
+    const resp = await fetch(`${trimmedBase}/models`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
     const latencyMs = Date.now() - start;
     if (!resp.ok) {
-      let errText: string;
-      try {
-        errText = await resp.text();
-      } catch {
-        errText = '';
-      }
+      const errText = await resp.text().catch(() => '');
       return {
         ok: false,
         latencyMs,
@@ -94,15 +98,87 @@ async function testProviderKey(
       };
     }
     const body = (await resp.json()) as unknown;
-    const models = extractModelIds(body);
-    return { ok: true, latencyMs, models };
+    return { ok: true, latencyMs, models: extractModelIds(body) };
   } catch (e) {
+    return { ok: false, latencyMs: Date.now() - start, models: [], error: (e as Error).message };
+  }
+}
+
+/**
+ * Validate an Anthropic-protocol key by hitting /v1/messages — the endpoint the
+ * profile actually uses — instead of /v1/models, which most gateways don't have.
+ * Distinguishes bad-key (401/403), billing (402), wrong-base (404) and a wrong
+ * default model from a genuinely working profile. The model list is fetched
+ * separately and best-effort: if the gateway happens to expose /v1/models we
+ * surface it, otherwise we just return an empty list without failing the test.
+ */
+async function testAnthropicKey(
+  base: string,
+  apiKey: string,
+  model?: string
+): Promise<ProviderTestResult> {
+  const headers = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+  };
+  // Best-effort model list — never fatal.
+  const models = await fetchAnthropicModels(base, headers);
+
+  if (!model) {
+    // Without a model we can't ping /v1/messages; fall back to whatever the
+    // optional model-list call told us.
+    return {
+      ok: models.length > 0,
+      latencyMs: 0,
+      models,
+      error: models.length > 0 ? undefined : '需要填默认 model 才能验证连接',
+    };
+  }
+
+  const start = Date.now();
+  try {
+    const resp = await fetch(`${base}/v1/messages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    });
+    const latencyMs = Date.now() - start;
+    if (resp.ok) {
+      return { ok: true, latencyMs, models };
+    }
+    const errText = await resp.text().catch(() => '');
+    const snippet = errText ? ` — ${errText.slice(0, 200)}` : '';
+    let hint = '';
+    if (resp.status === 401 || resp.status === 403) hint = '（API Key 无效或无权限）';
+    else if (resp.status === 402) hint = '（Key 有效，但账户余额不足 / 需充值）';
+    else if (resp.status === 404) hint = '（接口未找到，检查 Base URL 是否正确）';
     return {
       ok: false,
-      latencyMs: Date.now() - start,
-      models: [],
-      error: (e as Error).message,
+      latencyMs,
+      models,
+      error: `HTTP ${resp.status} ${resp.statusText}${hint}${snippet}`,
     };
+  } catch (e) {
+    return { ok: false, latencyMs: Date.now() - start, models, error: (e as Error).message };
+  }
+}
+
+/** Try GET {base}/v1/models; return [] on any failure (many gateways 404). */
+async function fetchAnthropicModels(
+  base: string,
+  headers: Record<string, string>
+): Promise<string[]> {
+  try {
+    const resp = await fetch(`${base}/v1/models`, { method: 'GET', headers });
+    if (!resp.ok) return [];
+    return extractModelIds((await resp.json()) as unknown);
+  } catch {
+    return [];
   }
 }
 
@@ -165,7 +241,7 @@ async function main() {
   // POST /api/profiles
   app.post('/api/profiles', (req, res) => {
     try {
-      const { name, displayName, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
+      const { name, displayName, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath, reasoningEffort } = req.body as {
         name: string;
         displayName?: string;
         baseUrl: string;
@@ -176,6 +252,7 @@ async function main() {
         haikuModel?: string;
         protocol?: 'anthropic' | 'openai';
         proxyChatCompletionsPath?: string;
+        reasoningEffort?: Profile['reasoningEffort'];
       };
       if (!name || !baseUrl || !apiKey || !model) {
         res.status(400).json({ error: 'Missing required fields' });
@@ -191,6 +268,7 @@ async function main() {
         haikuModel,
         protocol: protocol || 'anthropic',
         proxyChatCompletionsPath: proxyChatCompletionsPath || undefined,
+        reasoningEffort: reasoningEffort || undefined,
         createdAt: new Date().toISOString(),
       };
       saveProfile(profile, apiKey);
@@ -204,7 +282,7 @@ async function main() {
   // PUT /api/profiles/:name — update profile
   app.put('/api/profiles/:name', (req, res) => {
     try {
-      const { displayName, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath } = req.body as {
+      const { displayName, baseUrl, apiKey, model, opusModel, sonnetModel, haikuModel, protocol, proxyChatCompletionsPath, reasoningEffort } = req.body as {
         displayName?: string;
         baseUrl?: string;
         apiKey?: string;
@@ -214,6 +292,7 @@ async function main() {
         haikuModel?: string;
         protocol?: 'anthropic' | 'openai';
         proxyChatCompletionsPath?: string;
+        reasoningEffort?: Profile['reasoningEffort'];
       };
       const profileName = req.params.name;
       const existingKey = getProfileApiKey(profileName);
@@ -232,6 +311,7 @@ async function main() {
         haikuModel: haikuModel !== undefined ? (haikuModel || undefined) : existing.haikuModel,
         protocol: protocol ?? existing.protocol,
         proxyChatCompletionsPath: proxyChatCompletionsPath !== undefined ? (proxyChatCompletionsPath || undefined) : existing.proxyChatCompletionsPath,
+        reasoningEffort: reasoningEffort !== undefined ? (reasoningEffort || undefined) : existing.reasoningEffort,
       };
       // Only update API key if a new one is provided
       saveProfile(updated, apiKey ?? existingKey ?? '');
@@ -258,15 +338,17 @@ async function main() {
   });
 
   // POST /api/profiles/test — test API key + fetch model list in one shot.
-  // Body: { baseUrl, protocol, apiKey?, profileName? } — apiKey falls back to
-  // the stored key for `profileName` when omitted (used by the edit form).
+  // Body: { baseUrl, protocol, apiKey?, profileName?, model? } — apiKey falls
+  // back to the stored key for `profileName` when omitted (used by the edit
+  // form). `model` is used to ping /v1/messages for anthropic-protocol checks.
   app.post('/api/profiles/test', async (req, res) => {
     try {
-      const { baseUrl, protocol, apiKey, profileName } = req.body as {
+      const { baseUrl, protocol, apiKey, profileName, model } = req.body as {
         baseUrl: string;
         protocol: 'anthropic' | 'openai';
         apiKey?: string;
         profileName?: string;
+        model?: string;
       };
       if (!baseUrl || !protocol) {
         res.status(400).json({ error: 'baseUrl and protocol required' });
@@ -281,7 +363,7 @@ async function main() {
         return;
       }
 
-      const result = await testProviderKey(baseUrl, effectiveKey, protocol);
+      const result = await testProviderKey(baseUrl, effectiveKey, protocol, model?.trim() || undefined);
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });

@@ -21,6 +21,7 @@ function parseArgs(argv: string[]): ProxyServerOptions {
   let model = '';
   let authToken = '';
   let chatCompletionsPath = '';
+  let reasoningEffort = '';
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -31,6 +32,7 @@ function parseArgs(argv: string[]): ProxyServerOptions {
     if (arg === '--model' && argv[i + 1]) { model = argv[++i] || ''; continue; }
     if (arg === '--auth-token' && argv[i + 1]) { authToken = argv[++i] || ''; continue; }
     if (arg === '--proxy-chat-completions-path' && argv[i + 1]) { chatCompletionsPath = argv[++i] || ''; continue; }
+    if (arg === '--reasoning-effort' && argv[i + 1]) { reasoningEffort = argv[++i] || ''; continue; }
   }
 
   if (!authToken.trim()) {
@@ -43,7 +45,7 @@ function parseArgs(argv: string[]): ProxyServerOptions {
     throw new Error('Missing upstream API key');
   }
 
-  return { port, host, baseUrl, apiKey, model: model || undefined, authToken, chatCompletionsPath: chatCompletionsPath || undefined };
+  return { port, host, baseUrl, apiKey, model: model || undefined, authToken, chatCompletionsPath: chatCompletionsPath || undefined, reasoningEffort: reasoningEffort || undefined };
 }
 
 function main(): void {

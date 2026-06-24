@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Ui } from '@/design/icons/Ui';
 import { getProfileKey, testProfile, type Profile } from '@/lib/api';
-import type { Protocol, ProfileFormPayload } from '@/types/domain';
+import type { Protocol, ProfileFormPayload, ReasoningEffort } from '@/types/domain';
 import { strings } from '@/lib/strings';
 
 interface ProfileFormProps {
@@ -25,6 +25,7 @@ interface FormState {
   opus: string;
   sonnet: string;
   haiku: string;
+  reasoningEffort: ReasoningEffort;
 }
 
 const EMPTY_FORM: FormState = {
@@ -37,6 +38,7 @@ const EMPTY_FORM: FormState = {
   opus: '',
   sonnet: '',
   haiku: '',
+  reasoningEffort: 'high',
 };
 
 interface TestState {
@@ -74,6 +76,7 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
         opus: editingProfile.opusModel || '',
         sonnet: editingProfile.sonnetModel || '',
         haiku: editingProfile.haikuModel || '',
+        reasoningEffort: editingProfile.reasoningEffort || 'high',
       });
       // Pre-fill the stored API key so the user can see (masked) what's saved
       // and choose to reveal/replace it. Dashboard is localhost-only.
@@ -114,6 +117,7 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
       opusModel: form.opus || undefined,
       sonnetModel: form.sonnet || undefined,
       haikuModel: form.haiku || undefined,
+      reasoningEffort: form.reasoningEffort,
     });
 
     if (!isEdit) {
@@ -131,6 +135,7 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
         protocol: form.protocol,
         apiKey: form.apiKey,
         profileName: editingProfile?.name,
+        model: form.model || undefined,
       });
       setTest({
         status: result.ok ? 'ok' : 'error',
@@ -244,6 +249,13 @@ export function ProfileForm({ editingProfile, onSubmit, onCancel }: ProfileFormP
           <ProtocolToggle
             value={form.protocol}
             onChange={(v) => setForm((f) => ({ ...f, protocol: v }))}
+          />
+        </Field>
+
+        <Field id="reasoning" label={t.thinkingLabel} hint={t.thinkingHint}>
+          <EffortToggle
+            value={form.reasoningEffort}
+            onChange={(v) => setForm((f) => ({ ...f, reasoningEffort: v }))}
           />
         </Field>
 
@@ -468,6 +480,38 @@ function ProtocolToggle({
               <span className="font-rounded text-sm font-semibold text-ink-900">{label}</span>
             </div>
             <p className="mt-1 text-[11px] leading-tight text-ink-400">{hint}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const EFFORT_OPTIONS: ReasoningEffort[] = ['off', 'low', 'medium', 'high', 'max'];
+
+function EffortToggle({
+  value,
+  onChange,
+}: {
+  value: ReasoningEffort;
+  onChange: (v: ReasoningEffort) => void;
+}) {
+  return (
+    <div className="grid grid-cols-5 gap-1.5">
+      {EFFORT_OPTIONS.map((opt) => {
+        const active = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={`rounded-lg border-2 px-1 py-1.5 text-center font-rounded text-xs font-semibold capitalize transition-all ${
+              active
+                ? 'border-ink-900 bg-arcade-lagoon/15 text-ink-900 shadow-pixel1'
+                : 'border-paper-300 bg-paper-50 text-ink-500 hover:border-ink-400'
+            }`}
+          >
+            {opt}
           </button>
         );
       })}

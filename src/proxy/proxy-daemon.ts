@@ -94,14 +94,20 @@ export async function startProxy(
   apiKey: string,
   model?: string,
   proxyChatCompletionsPath?: string,
+  reasoningEffort?: string,
 ): Promise<ProxyStartResult> {
   // Check if already running
   const existingSession = readProxySession(profileName);
   if (existingSession && await isProxyRunning(existingSession.port)) {
-    // If the caller provided a different proxyChatCompletionsPath, the existing
-    // proxy is incompatible — stop it and restart with the new path.
-    const existingPath = existingSession.proxyChatCompletionsPath;
-    if (proxyChatCompletionsPath && proxyChatCompletionsPath !== existingPath) {
+    // If the caller provided a different proxyChatCompletionsPath or thinking
+    // intensity, the existing proxy is stale — stop it and restart fresh.
+    const pathChanged =
+      proxyChatCompletionsPath !== undefined &&
+      proxyChatCompletionsPath !== existingSession.proxyChatCompletionsPath;
+    const effortChanged =
+      reasoningEffort !== undefined &&
+      reasoningEffort !== existingSession.reasoningEffort;
+    if (pathChanged || effortChanged) {
       await stopProxy(profileName);
     } else {
       return { port: existingSession.port, authToken: existingSession.authToken };
@@ -146,6 +152,7 @@ export async function startProxy(
     '--auth-token', authToken,
     ...(model ? ['--model', model] : []),
     ...(proxyChatCompletionsPath ? ['--proxy-chat-completions-path', proxyChatCompletionsPath] : []),
+    ...(reasoningEffort ? ['--reasoning-effort', reasoningEffort] : []),
   ], {
     detached: true,
     stdio: 'ignore',
@@ -172,6 +179,7 @@ export async function startProxy(
     authToken,
     baseUrl,
     proxyChatCompletionsPath,
+    reasoningEffort,
     startedAt: new Date().toISOString(),
   };
   writeProxySession(session);

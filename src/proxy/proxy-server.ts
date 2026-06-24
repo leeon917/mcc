@@ -32,6 +32,7 @@ export interface ProxyServerOptions {
   apiKey: string;
   model?: string;
   chatCompletionsPath?: string; // e.g. '/chat/completions' for BigModel (defaults to /v1/chat/completions)
+  reasoningEffort?: string;     // 'off'|'low'|'medium'|'high'|'max'; undefined ⇒ 'high'
 }
 
 // --- HTTP Helpers (from CCS http-helpers.js) ---
@@ -113,13 +114,62 @@ function validateAuth(headers: http.IncomingHttpHeaders, expectedToken: string):
 
 // --- Request Translation ---
 
+/**
+ * Build the provider-specific reasoning/thinking params to inject upstream.
+ *
+ * The generic transformer only knows `reasoning_effort`, which Qwen ignores and
+ * which can't carry GLM's `thinking` object. So we re-derive the params per
+ * upstream dialect (detected by host) to get thinking ON by default at the
+ * configured intensity:
+ *   - Qwen (dashscope) → enable_thinking + thinking_budget (tokens)
+ *   - GLM (bigmodel)   → thinking{type:enabled} + reasoning_effort
+ *   - generic          → reasoning_effort (max/xhigh clamped to high — most
+ *                        OpenAI-compat providers 400 on unknown effort values)
+ */
+function buildReasoningInjection(baseUrl: string, effort: string): Record<string, unknown> {
+  const host = baseUrl.toLowerCase();
+  const isQwen = host.includes('dashscope');
+  const isGlm = host.includes('bigmodel');
+
+  if (effort === 'off') {
+    // GLM defaults thinking ON, so disabling must be explicit; others default
+    // off (Qwen) or are model-controlled, so omitting the param is enough.
+    return isGlm ? { thinking: { type: 'disabled' } } : {};
+  }
+
+  if (isQwen) {
+    const budget: Record<string, number> = { low: 4096, medium: 16384, high: 32768, max: 81920 };
+    return { enable_thinking: true, thinking_budget: budget[effort] ?? 32768 };
+  }
+  if (isGlm) {
+    // GLM-5.x accepts low/medium/high/max/xhigh directly.
+    return { thinking: { type: 'enabled' }, reasoning_effort: effort };
+  }
+  const clamped = effort === 'max' || effort === 'xhigh' ? 'high' : effort;
+  return { reasoning_effort: clamped };
+}
+
 function buildUpstreamRequest(rawBody: Record<string, unknown>, options: ProxyServerOptions): string {
   const transformer = new ProxyRequestTransformer();
   const transformed = transformer.transform(rawBody) as Record<string, unknown>;
-  // Strip fields that standard OpenAI-compat providers don't accept
-  const { metadata: _metadata, ...rest } = transformed;
+  // Strip fields standard OpenAI-compat providers don't accept (metadata) and
+  // the transformer's coarse reasoning_effort — we re-inject per dialect below.
+  const { metadata: _metadata, reasoning_effort: _droppedEffort, ...rest } = transformed;
+
+  // Thinking ON by default at the profile's intensity, unless the client
+  // explicitly disabled it for this request.
+  const clientThinking = rawBody.thinking as { type?: string } | undefined;
+  const effort = clientThinking?.type === 'disabled' ? 'off' : (options.reasoningEffort || 'high');
+  const reasoning = buildReasoningInjection(options.baseUrl, effort);
+
+  // GLM only accepts tool_choice "auto"; clamp anything else to avoid a 400.
+  if (options.baseUrl.toLowerCase().includes('bigmodel') && 'tool_choice' in rest && rest.tool_choice !== 'auto') {
+    rest.tool_choice = 'auto';
+  }
+
   const body = {
     ...rest,
+    ...reasoning,
     model: rest.model || options.model || 'gpt-4',
     stream: rest.stream === true,
   };

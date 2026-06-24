@@ -24,6 +24,17 @@ function getProfilesJsonPath(): string {
   return path.join(getMccHome(), 'profiles.json');
 }
 
+/**
+ * Thinking / reasoning intensity. Normalized across providers; how it maps:
+ *   - openai-protocol → injected by the proxy as provider-specific params
+ *     (Qwen: enable_thinking + thinking_budget; GLM: thinking{enabled} + reasoning_effort;
+ *      generic: reasoning_effort, max clamped to high).
+ *   - anthropic-protocol → exported as CLAUDE_CODE_EFFORT_LEVEL (honored by DeepSeek;
+ *     a harmless no-op for providers like Kimi/MiMo whose thinking is binary always-on).
+ * Undefined is treated as 'high' (thinking on). 'off' disables.
+ */
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'max';
+
 export interface Profile {
   name: string;            // CLI handle, unique, immutable — what `mcc <name>` resolves
   displayName?: string;    // Optional pretty label for UI; falls back to `name` when missing
@@ -34,6 +45,7 @@ export interface Profile {
   haikuModel?: string;      // Tier 3 (Haiku / small-fast)
   protocol?: 'anthropic' | 'openai';  // 'anthropic' = direct, 'openai' = needs translation proxy
   proxyChatCompletionsPath?: string;  // Override default /v1/chat/completions (e.g. '/chat/completions' for BigModel)
+  reasoningEffort?: ReasoningEffort;  // Thinking intensity; undefined = 'high' (thinking on)
   createdAt: string;
   lastUsedAt?: string;
 }

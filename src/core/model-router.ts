@@ -10,7 +10,11 @@
  */
 
 import type { Profile } from '../accounts/store';
-import { readMcpConfig, getActiveImageAnalysisProvider, getEnabledWebSearchProviders } from '../mcp/mcp-config';
+import {
+  readMcpConfig,
+  getEnabledImageAnalysisProviders,
+  getEnabledWebSearchProviders,
+} from '../mcp/mcp-config';
 
 export interface ProfileEnv {
   ANTHROPIC_BASE_URL: string;
@@ -36,7 +40,8 @@ export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDi
   // Read MCP config for provider settings
   const mcpConfig = readMcpConfig();
   const wsProviders = getEnabledWebSearchProviders(mcpConfig);
-  const iaProvider = getActiveImageAnalysisProvider(mcpConfig);
+  const iaProviders = getEnabledImageAnalysisProviders(mcpConfig);
+  const iaProvider = iaProviders[0] ?? null;
 
   const env: Record<string, string> = {
     ANTHROPIC_BASE_URL: profile.baseUrl,
@@ -50,6 +55,16 @@ export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDi
     DISABLE_COST_WARNINGS: '1',
     CLAUDE_CONFIG_DIR: claudeConfigDir,
   };
+
+  // Thinking intensity. For anthropic-protocol providers this is the only knob
+  // we can set client-side: CLAUDE_CODE_EFFORT_LEVEL drives output_config.effort
+  // (honored by DeepSeek; a harmless no-op for binary-thinking providers like
+  // Kimi/MiMo). For openai-protocol the proxy injects provider-specific params
+  // instead, but exporting it here is still harmless. Undefined ⇒ 'high'.
+  const effort = profile.reasoningEffort ?? 'high';
+  if (effort !== 'off') {
+    env.CLAUDE_CODE_EFFORT_LEVEL = effort;
+  }
 
   // MCP: WebSearch
   env.MCC_WEBSEARCH_ENABLED = mcpConfig.websearch.enabled ? '1' : '0';
@@ -75,10 +90,22 @@ export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDi
   // MCP: Image Analysis
   if (mcpConfig.imageAnalysis.enabled && iaProvider) {
     env.MCC_IMAGE_ANALYSIS_ENABLED = '1';
+    // Legacy single-provider vars — kept for back-compat / launch display.
     env.MCC_IMAGE_ANALYSIS_RUNTIME_BASE_URL = iaProvider.baseUrl;
     env.MCC_IMAGE_ANALYSIS_RUNTIME_API_KEY = iaProvider.apiKey;
     env.MCC_IMAGE_ANALYSIS_MODEL = iaProvider.model;
     env.MCC_IMAGE_ANALYSIS_FORMAT = iaProvider.format;
+    // Full fallback chain — the runtime tries these in order; the first that
+    // succeeds wins, the rest are tried on 402 / auth / network errors.
+    env.MCC_IMAGE_ANALYSIS_PROVIDERS = JSON.stringify(
+      iaProviders.map((p) => ({
+        id: p.id,
+        baseUrl: p.baseUrl,
+        apiKey: p.apiKey,
+        model: p.model,
+        format: p.format,
+      })),
+    );
   }
 
   return env as unknown as ProfileEnv;

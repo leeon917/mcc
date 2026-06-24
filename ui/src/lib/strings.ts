@@ -126,6 +126,8 @@ export const strings = {
     protocolOpenaiLabel: 'OpenAI',
     protocolAnthropicHint: '直接命中 /v1/messages，0 中间层',
     protocolOpenaiHint: '本地 proxy 翻译为 Anthropic 协议',
+    thinkingLabel: '思考强度',
+    thinkingHint: '默认开启思考（off 关闭）。DeepSeek/GLM/Qwen 支持分档；Kimi/MiMo 仅常开。',
     tieredModelsSummary: '分层模型 (Opus / Sonnet / Haiku)',
     tieredModelsHint: '不填则全部 fallback 到默认 Model；填了 Claude Code 内 /model 切档才有差异。',
     opusLabel: 'Opus',

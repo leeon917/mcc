@@ -15,6 +15,9 @@
  */
 export type Protocol = 'anthropic' | 'openai';
 
+/** Thinking / reasoning intensity. 'off' disables; undefined defaults to 'high'. */
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'max';
+
 /**
  * Payload emitted by ProfileForm on submit. Mirrors the wire shape of
  * `POST /api/profiles` minus server-managed fields (createdAt etc).
@@ -32,6 +35,7 @@ export interface ProfileFormPayload {
   opusModel?: string;
   sonnetModel?: string;
   haikuModel?: string;
+  reasoningEffort?: ReasoningEffort;
 }
 
 /**

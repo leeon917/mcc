@@ -1,5 +1,7 @@
 const API_BASE = '/api';
 
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'max';
+
 export interface Profile {
   name: string;
   displayName?: string;
@@ -9,6 +11,8 @@ export interface Profile {
   sonnetModel?: string;
   haikuModel?: string;
   protocol?: 'anthropic' | 'openai';
+  proxyChatCompletionsPath?: string;
+  reasoningEffort?: ReasoningEffort;
   createdAt: string;
   lastUsedAt?: string;
 }
@@ -92,6 +96,7 @@ export async function testProfile(args: {
   protocol: 'anthropic' | 'openai';
   apiKey?: string;
   profileName?: string;
+  model?: string;
 }): Promise<TestProfileResult> {
   const res = await fetch(`${API_BASE}/profiles/test`, {
     method: 'POST',

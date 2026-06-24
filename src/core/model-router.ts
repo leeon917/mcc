@@ -54,14 +54,17 @@ export function buildProfileEnv(profile: Profile, apiKey: string, claudeConfigDi
   // MCP: WebSearch
   env.MCC_WEBSEARCH_ENABLED = mcpConfig.websearch.enabled ? '1' : '0';
   for (const p of wsProviders) {
-    env[`MCC_WEBSEARCH_${p.toUpperCase()}`] = '1';
-    // Set API key env vars for providers that need them
+    // Normalize provider id to a valid env-var suffix (no dashes).
+    const envKey = p.replace(/-/g, '_').toUpperCase();
+    env[`MCC_WEBSEARCH_${envKey}`] = '1';
     const providerConfig = mcpConfig.websearch.providers[p];
     if (providerConfig?.apiKey) {
       const keyEnvMap: Record<string, string> = {
         exa: 'MCC_WEBSEARCH_EXA_API_KEY',
         tavily: 'MCC_WEBSEARCH_TAVILY_API_KEY',
         brave: 'MCC_WEBSEARCH_BRAVE_API_KEY',
+        bocha: 'MCC_WEBSEARCH_BOCHA_API_KEY',
+        minimax: 'MCC_WEBSEARCH_MINIMAX_API_KEY',
       };
       if (keyEnvMap[p]) {
         env[keyEnvMap[p]] = providerConfig.apiKey;

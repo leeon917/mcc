@@ -6,7 +6,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write
+  id-token: write # 必须：OIDC trusted publishing 用它向 npm 证明仓库身份
 
 jobs:
   publish:
@@ -18,14 +18,19 @@ jobs:
         with:
           version: 10
 
+      # trusted publishing 要求 Node >= 22.14
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
+      # trusted publishing 要求 npm CLI >= 11.5.1（Node 22 自带的 npm 不够新）
+      - run: npm install -g npm@latest
+
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm publish --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # 用 npm publish 走 OIDC（pnpm 11 的 OIDC 有已知 404 回归）。
+      # trusted publishing 下 provenance 自动生成、也无需 NODE_AUTH_TOKEN；
+      # access/provenance 由 package.json 的 publishConfig 控制。
+      - run: npm publish

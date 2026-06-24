@@ -56,8 +56,6 @@ export async function cmdLaunch(args: string[]): Promise<void> {
   const iaProvider = getActiveImageAnalysisProvider(mcpConfig);
 
   const instancePath = await instanceMgr.ensureInstance(profileName);
-  console.log(`  ${pc.dim('instance')}  ${pc.dim(instancePath)}`);
-
   syncInstanceMcpServers(instancePath, BUILTIN_MCP_SERVERS.map((s) => s.name), profileName);
 
   // Initialize logging session
@@ -65,7 +63,7 @@ export async function cmdLaunch(args: string[]): Promise<void> {
   const mccHome = process.env.MCC_HOME ?? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '~', '.mcc');
   const logDir = path.join(mccHome, 'logs', profileName, 'sessions', sessionId);
   init(sessionId, logDir);
-  log.info('MCC', `Session starting: ${profileName} | log: ${logDir}`);
+  log.debug('MCC', `Session starting: ${profileName} | log: ${logDir}`);
   console.log(`  ${pc.dim('session')}   ${pc.dim(sessionId)}`);
 
   // MCP provider summary
@@ -86,9 +84,14 @@ export async function cmdLaunch(args: string[]): Promise<void> {
   env.MCC_CURRENT_PROFILE = profileName;
   env.MCC_LOG_SESSION_ID = sessionId;
   env.MCC_LOG_DIR = logDir;
+  // Preserve full color depth — without this Claude Code's TUI looks dim when
+  // spawned as a child process (TTY color detection can downgrade).
+  env.FORCE_COLOR = '3';
+  env.COLORTERM = 'truecolor';
 
-  // Debug: key env vars (no secrets)
+  // Debug: instance path + key env vars (no secrets)
   if (isDebugEnabled()) {
+    console.log(`  ${pc.dim('instance')}  ${pc.dim(instancePath)}`);
     const debugEnvs: [string, string][] = [
       ['ANTHROPIC_BASE_URL', env.ANTHROPIC_BASE_URL],
       ['ANTHROPIC_MODEL', env.ANTHROPIC_MODEL],

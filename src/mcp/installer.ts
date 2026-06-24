@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import pc from 'picocolors';
+import { isDebugEnabled } from '../shared/logger';
 import {
   getBuiltinServerPath,
   BUILTIN_MCP_SERVERS,
@@ -222,8 +223,10 @@ export function syncInstanceMcpServers(
     mode: 0o600,
   });
 
-  const count = Object.keys(mcpServers).length;
-  console.log(`  ${pc.dim('mcp')}       ${pc.dim(`${count} server(s) synced`)}`);
+  if (isDebugEnabled()) {
+    const count = Object.keys(mcpServers).length;
+    console.log(`  ${pc.dim('mcp')}       ${pc.dim(`${count} server(s) synced`)}`);
+  }
 }
 
 /**

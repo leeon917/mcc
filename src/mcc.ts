@@ -7,7 +7,6 @@
  * lives in those modules, not here.
  */
 
-import { spawn } from 'child_process';
 import * as path from 'path';
 import { installBuiltinServers } from './mcp/installer';
 import { checkForUpdates, runUpdate, setUpdateCheckCmd } from './update';
@@ -65,7 +64,7 @@ Examples:
 
   mcc profile add prod --base-url https://api.deepseek.com/anthropic --api-key sk-xxxx --model deepseek-chat
   mcc profile list
-  mcc dashboard
+  mcc config              Open the Web config dashboard
 
   mcc update              Upgrade mcc to the latest version
   mcc update --check      Check for a new version without installing
@@ -73,11 +72,18 @@ Examples:
 `.trim());
 }
 
-function spawnDashboard(): void {
-  spawn('node', [path.join(__dirname, 'dashboard', 'server.js')], {
-    env: process.env,
-    stdio: 'inherit',
-  });
+/**
+ * Start the config dashboard server in this same process.
+ *
+ * Implemented as a dynamic import (not a child_process spawn) so it works
+ * uniformly whether mcc.ts is being executed by tsx (src/*.ts) or by node
+ * (dist/*.js) — child_process would have to pick a file path and one of
+ * the two modes would always be missing the file. Same process is fine
+ * because the dashboard server is the long-running thing anyway and we
+ * have nothing to do after it boots.
+ */
+async function spawnConfigDashboard(): Promise<void> {
+  await import('./dashboard/server');
 }
 
 async function dispatchProfile(args: string[]): Promise<void> {
@@ -136,7 +142,7 @@ async function main(): Promise<void> {
   switch (command) {
     case 'profile':   await dispatchProfile(args); break;
     case 'mcp':       await dispatchMcp(args); break;
-    case 'dashboard': spawnDashboard(); break;
+    case 'config':    await spawnConfigDashboard(); break;
     case 'update':    await runUpdate({ checkOnly: args.includes('--check') }); break;
     case 'update-check': setUpdateCheckCmd(args[0]); break;
     default:

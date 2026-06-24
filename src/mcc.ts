@@ -17,6 +17,7 @@ import {
   cmdProfileRemove,
   cmdProfileDefault,
 } from './commands/profile';
+import { cmdProfileTest } from './commands/profile-test';
 import {
   cmdMcpList,
   cmdMcpAdd,
@@ -64,6 +65,8 @@ Examples:
 
   mcc profile add prod --base-url https://api.deepseek.com/anthropic --api-key sk-xxxx --model deepseek-chat
   mcc profile list
+  mcc profile test                Health-check every profile (key + balance)
+  mcc profile test deepseek --vision   Also probe whether its model sees images
   mcc config              Open the Web config dashboard
 
   mcc update              Upgrade mcc to the latest version
@@ -90,6 +93,7 @@ async function dispatchProfile(args: string[]): Promise<void> {
   switch (args[0]) {
     case 'add': await cmdProfileAdd(args.slice(1)); break;
     case 'list': await cmdProfileList(); break;
+    case 'test': await cmdProfileTest(args.slice(1)); break;
     case 'remove': await cmdProfileRemove(args.slice(1)); break;
     case 'default': await cmdProfileDefault(args.slice(1)); break;
     default:

@@ -1,7 +1,21 @@
+/* 三层 token 必须在 Tailwind 之前 import：让 primitive → semantic →
+   components 的级联先就位，下面的 shadcn HSL 桥才能引用它们。
+   分层规范见 project-template/build.md §11.2。 */
+@import './design/tokens/primitive.css';
+@import './design/tokens/semantic.css';
+@import './design/tokens/components.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* shadcn / Tailwind 用的是 HSL 三元组（空格分隔），跟我们三层 token 的
+   命名空间是两条路。这里把 shadcn 契约保留，但视觉口径以 semantic 层
+   为准——未来切主题只动 semantic.css，HSL 这一段不用碰。
+
+   注意：HSL 这层是「Tailwind 适配层」，不是新组件该用的层。新组件请用
+   var(--card-*)/var(--button-*) 这类 components 层 token，或直接用语
+   义类（bg-background / text-foreground）。 */
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -16,6 +30,8 @@
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
@@ -28,6 +44,59 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background: var(--app-bg);
+    color: var(--app-text);
+  }
+}
+
+/* ── 组件级语义类（用 components 层 token 实现，避免在 JSX 里写裸色） ── */
+@layer components {
+  .badge-default {
+    background: var(--badge-bg);
+    color: var(--badge-text);
+    border-radius: var(--badge-radius);
+  }
+
+  .badge-current {
+    background: var(--badge-success-bg);
+    color: var(--badge-success-text);
+    box-shadow: inset 0 0 0 1px var(--badge-success-ring);
+    border-radius: var(--radius-pill);
+  }
+
+  .status-online {
+    color: var(--status-online-text);
+  }
+  .status-online-dot {
+    background: var(--status-online-dot);
+  }
+  .status-offline {
+    color: var(--status-offline-text);
+  }
+  .status-offline-dot {
+    background: var(--status-offline-dot);
+  }
+
+  .banner-warning {
+    background: var(--banner-warning-bg);
+    border: 1px solid var(--banner-warning-border);
+    color: var(--banner-warning-text);
+  }
+  .banner-success {
+    background: var(--banner-success-bg);
+    border: 1px solid var(--banner-success-border);
+    color: var(--banner-success-text);
+  }
+  .banner-error {
+    background: var(--banner-error-bg);
+    border: 1px solid var(--banner-error-border);
+    color: var(--banner-error-text);
+  }
+
+  .code-faint {
+    color: var(--code-text-faint);
+  }
+  .code-mono {
+    color: var(--code-text);
   }
 }

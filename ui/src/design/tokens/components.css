@@ -1,0 +1,73 @@
+/* 第 3 层 · 组件级：贴着具体组件命名（--button-* / --card-*…），
+   值一律引用第 2 层语义。组件 CSS 只认这一层，永远不知道也不该知道
+   最终是哪个 hex。新增组件时在此加一组变量。
+
+   参考 project-template/build.md §11.2。 */
+:root {
+  /* App shell */
+  --app-bg: var(--color-bg-base);
+  --app-text: var(--color-text-primary);
+
+  /* Card / Panel */
+  --card-bg: var(--color-bg-surface);
+  --card-border: var(--color-border);
+  --card-text: var(--color-text-primary);
+  --card-text-muted: var(--color-text-muted);
+  --card-radius: var(--radius-card);
+  --card-padding: var(--space-block);
+
+  /* Button — primary */
+  --button-bg: var(--color-accent);
+  --button-bg-hover: var(--color-accent-hover);
+  --button-text: var(--color-accent-foreground);
+  --button-radius: var(--radius-control);
+  --button-padding: var(--space-inline) var(--space-block);
+
+  /* Button — danger */
+  --button-danger-bg: var(--color-danger);
+  --button-danger-bg-hover: var(--color-danger-hover);
+  --button-danger-text: var(--color-accent-foreground);
+
+  /* Input */
+  --input-bg: var(--color-bg-surface);
+  --input-border: var(--color-border-strong);
+  --input-text: var(--color-text-primary);
+  --input-placeholder: var(--color-text-faint);
+  --input-radius: var(--radius-control);
+  --input-focus-ring: var(--color-focus-ring);
+
+  /* Badge — default */
+  --badge-bg: var(--color-bg-surface-muted);
+  --badge-text: var(--color-text-muted);
+  --badge-radius: var(--radius-sm);
+
+  /* Badge — success ("default" profile) */
+  --badge-success-bg: var(--color-success-soft);
+  --badge-success-text: var(--color-success-on-soft);
+  --badge-success-ring: rgb(5 150 105 / 0.2);
+
+  /* Status dot */
+  --status-online-text: var(--color-success-on-soft);
+  --status-online-dot: var(--color-success-dot);
+  --status-offline-text: var(--color-danger-hover);
+  --status-offline-dot: var(--color-danger);
+
+  /* Banner — unsaved (warning) */
+  --banner-warning-bg: var(--color-warning-soft);
+  --banner-warning-border: var(--color-warning-border);
+  --banner-warning-text: var(--color-warning-on-soft);
+
+  /* Banner — saved (success) */
+  --banner-success-bg: var(--color-success-soft);
+  --banner-success-border: var(--emerald-400);
+  --banner-success-text: var(--color-success-on-soft);
+
+  /* Banner — error */
+  --banner-error-bg: var(--color-danger-soft);
+  --banner-error-border: var(--red-500);
+  --banner-error-text: var(--color-danger-on-soft);
+
+  /* Inline code / mono */
+  --code-text: var(--color-text-mono);
+  --code-text-faint: var(--color-text-faint);
+}

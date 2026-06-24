@@ -1,0 +1,64 @@
+/* 第 2 层 · 语义：用「意图」命名（surface / text-primary / accent…），
+   值一律引用第 1 层。组件不直接读 primitive，只读这一层——这样换皮肤
+   （亮/暗、品牌切换）只重映射本文件，组件零改动。
+
+   参考 project-template/build.md §11.2。 */
+:root {
+  /* 背景 / 表面 */
+  --color-bg-base: var(--gray-50);
+  --color-bg-surface: var(--white);
+  --color-bg-surface-muted: var(--gray-100);
+  --color-bg-overlay: rgb(0 0 0 / 0.4);
+
+  /* 文字 */
+  --color-text-primary: var(--gray-900);
+  --color-text-secondary: var(--gray-700);
+  --color-text-muted: var(--gray-500);
+  --color-text-faint: var(--gray-400);
+  --color-text-inverse: var(--white);
+  --color-text-mono: var(--gray-800);
+
+  /* 强调 / 交互 */
+  --color-accent: var(--blue-600);
+  --color-accent-hover: var(--blue-700);
+  --color-accent-soft: var(--blue-50);
+  --color-accent-foreground: var(--white);
+
+  /* 状态 */
+  --color-success: var(--emerald-600);
+  --color-success-soft: var(--emerald-50);
+  --color-success-on-soft: var(--emerald-700);
+  --color-success-dot: var(--green-500);
+
+  --color-warning: var(--amber-500);
+  --color-warning-soft: var(--amber-50);
+  --color-warning-on-soft: var(--amber-700);
+  --color-warning-border: var(--amber-200);
+
+  --color-danger: var(--red-500);
+  --color-danger-hover: var(--red-600);
+  --color-danger-soft: var(--red-50);
+  --color-danger-on-soft: var(--red-700);
+
+  /* 边框 / 分割线 */
+  --color-border: var(--gray-200);
+  --color-border-muted: var(--gray-100);
+  --color-border-strong: var(--gray-300);
+  --color-focus-ring: var(--blue-500);
+
+  /* 间距 / 圆角语义别名 */
+  --space-inline: var(--space-2);
+  --space-block: var(--space-4);
+  --space-section: var(--space-6);
+  --radius-control: var(--radius-md);
+  --radius-card: var(--radius-md);
+  --radius-pill: var(--radius-full);
+}
+
+/* 暗色皮肤（保留占位，未来按需启用，组件无需改动）。
+   :root[data-theme="dark"] {
+     --color-bg-base: var(--gray-950);
+     --color-bg-surface: var(--gray-900);
+     --color-text-primary: var(--gray-50);
+     --color-border: var(--gray-800);
+   } */

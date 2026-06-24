@@ -112,9 +112,9 @@ lib/
 
 通过 `~/.mcc/mcp-config.json` 配置，或通过 Dashboard UI。
 
-WebSearch provider：duckduckgo（默认，免 API key）、exa、tavily、brave
+WebSearch provider：duckduckgo（默认免 key）、博查 Bocha、阿里通义 web_search、MiniMax Search、exa、tavily、brave
 
-ImageAnalysis provider：ali（qwen-vl）、kimi（moonshot-vl）、minimax、deepseek
+ImageAnalysis provider：ali（qwen3-vl）、xiaomi（mimo-v2-omni）、minimax、deepseek（V4 起原生 vision）、kimi
 
 ## 开发
 

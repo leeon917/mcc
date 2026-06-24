@@ -5,7 +5,7 @@
 MCC 是一个轻量级多账号切换工具，用于在多个 Claude Code 账号（不同 API Provider）之间快速切换。
 
 核心功能：
-- 多 profile 管理（deepseek、qwen、glm、km、mm、anthropic）
+- 多 profile 管理（deepseek、qwen、glm、km、mm、xiaomi-mimo、anthropic）
 - 直接 API 模式和 OpenAI 兼容模式（自动翻译 proxy）
 - MCP 工具支持（WebSearch、ImageAnalysis）
 - 每个 profile 独立的 `CLAUDE_CONFIG_DIR` 隔离
@@ -49,7 +49,6 @@ lib/
 │   ├── mcc-websearch-server.cjs
 │   └── mcc-image-analysis-server.cjs
 ├── mcp-hooks/                  # MCP 运行时 hook
-│   ├── logger.cjs
 │   ├── image-analysis-runtime.cjs
 │   ├── image-analyzer-transformer.cjs
 │   └── websearch-transformer.cjs
@@ -112,8 +111,8 @@ OpenAI 兼容 profile 启动时自动在 `127.0.0.1:43456-43555` 范围内启动
 ## MCP 工具
 
 内置两个 MCP server：
-- `mcc-websearch` - Web 搜索（Exa/Tavily/Brave/DuckDuckGo）
-- `mcc-image-analysis` - 图片分析（支持 OpenAI vision 格式）
+- `mcc-websearch` - Web 搜索（Bocha/MiniMax/Exa/Tavily/Brave/DuckDuckGo/SearXNG，按可用性 fallback）
+- `mcc-image-analysis` - 图片分析（OpenAI / Anthropic 两种 vision 格式，provider 在 mcp-config.json 配置）
 
 外部 MCP 通过 `mcc mcp add` 注册，支持 `${MCC_PROVIDER_KEY:<providerId>}` 引用 `mcp-config.json` 里配置的 API key。
 
@@ -137,16 +136,18 @@ MCP provider 配置在 `~/.mcc/mcp-config.json`。
 
 ### 时间戳规范
 
-追加到 `decisions.md` / `lessons.md` 以及任何归档注释块的条目标题，**必须**使用 `YYYY-MM-DD HH:MM:SS +TZ` 格式（24 小时制 + 时区），例：`2026-04-25 14:30:45 +08:00`。不要只写日期。
+追加到 `decisions.md` / `lessons.md` 以及任何归档注释块的条目标题，**必须**使用 `YYYY-MM-DD HH:MM:SS +00:00` 格式（24 小时制 + UTC），例：`2026-04-25 21:30:45 +00:00`。不要只写日期。
 
-**为什么**：本项目可能同时开多个 git worktree 改同一份记忆文件，仅凭日期无法稳定排序——合并时容易冲突，错误记录也无法对回到当时的代码状态。
+**时区一律用 UTC（协调世界时），偏移量恒为 `+00:00`，不跟本机时区走，也无夏令时切换**。
+
+**为什么**：(1) 本项目可能同时开多个 git worktree 改同一份记忆文件，仅凭日期无法稳定排序——合并时容易冲突，错误记录也无法对回到当时的代码状态；(2) worktree / PR 可能从不同时区的机器上合并，统一钉成 UTC 这一个零偏移基准才能跨机器正确排序、无夏令时歧义，PR 合并时也按这个基准判断先后。
 
 **读取时以时间戳为准，不要以文件中出现的顺序为准**：worktree 合并 / 并行追加 / Claude 误插位置等场景下，新条目可能落在文件中较旧条目之后但实际时间更早。判断"哪条最新 / 谁 supersede 谁 / 同一天的先后"一律看 header 里的时间戳，**不要**靠文件位置推断。位置错乱按 `decisions.md` 的「只增不改」原则不主动重排——动既往位置反而违反追加式协议。
 
-**获取当前时刻**：
+**获取当前时刻（一律取 UTC，不取本机时区）**：
 
-- bash：`date "+%Y-%m-%d %H:%M:%S %:z"`
-- PowerShell：`Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"`
+- bash（Linux / Mac / Windows Git Bash 均可）：`date -u "+%Y-%m-%d %H:%M:%S +00:00"`（`-u` 强制 UTC，跨平台一致，不依赖 tzdata）
+- PowerShell（Windows）：`[DateTime]::UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + " +00:00"`
 
 `product.md` 是滚动更新文件，不受此规范约束。
 
@@ -184,6 +185,19 @@ MCP provider 配置在 `~/.mcc/mcp-config.json`。
 - 不要把决策的背景 / 选项 / 代价抄到 CLAUDE.md 或 README.md 里，**只抄结论**（当前事实）
 - 没有实际变化就不改——不要为了"看起来在维护"做无意义修订
 
+### 归档约定（被取代的旧文档放哪）
+
+凡是被新文件取代但仍有历史参考价值的旧文档（旧 PRD、过时架构说明、被推翻的规划等），统一放到 **`docs/archive/`** 目录下，不要与现役文档平级存放。
+
+规则：
+
+1. **归档目录**：`docs/archive/`（不存在就先 `mkdir -p` 创建）
+2. **文件名加归档时间戳后缀**：`<原文件名>.<YYYY-MM-DDTHHMMSSZ>.<ext>`（UTC，文件名内不用冒号）
+   - 例：`docs/old-PRD.md` → `docs/archive/old-PRD.2026-06-24T141806Z.md`
+3. **用 `git mv` 移动**（保留版本历史）；不在 git 仓库才用普通 `mv`
+4. **在归档文件顶部插入 HTML 注释块**，必须包含「归档时间」「归档来源 → 归档后路径」「与现役实现的出入点」三块信息
+5. **更新引用**：CLAUDE.md 记忆索引或其他文档指向过旧路径的，改指到归档目录或去掉条目
+
 ### 以下情况不要记录
 
 - 小 bug、typo、无需思考就能修的问题
@@ -198,7 +212,7 @@ MCP provider 配置在 `~/.mcc/mcp-config.json`。
 ### 各文件的变更模式
 
 - `product.md`：滚动更新。方向有较大调整时重写对应章节。
-- `decisions.md`：**追加式，只增不改**。历史决策永远不修改；如被推翻，新建条目并在其中引用旧条目（如 "Supersedes 2026-01-15 14:30:45 +08:00 的条目"）。
+- `decisions.md`：**追加式，只增不改**。历史决策永远不修改；如被推翻，新建条目并在其中引用旧条目（如 "Supersedes 2026-01-15 06:30:45 +00:00 的条目"）。
 - `lessons.md`：追加为主。坑被彻底修复后可剪枝对应条目；有长期警示价值的保留。
 
 <!-- END: PROJECT MEMORY PROTOCOL -->

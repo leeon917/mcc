@@ -10,7 +10,7 @@ MCC（My Cloud Code）是一个轻量级 CLI 工具，用于在多个 Claude Cod
 
 ## 为谁做 / 解决什么问题
 
-为需要频繁在多个 AI provider（deepseek、qwen、glm、kimi、minimax、anthropic 等）之间切换的开发者，省去每次手动改 config、改环境变量的机械劳动。
+为需要频繁在多个 AI provider（deepseek、qwen、glm、kimi、minimax、xiaomi-mimo、anthropic 等）之间切换的开发者，省去每次手动改 config、改环境变量的机械劳动。
 
 ## 当前核心功能
 
@@ -21,7 +21,7 @@ MCC（My Cloud Code）是一个轻量级 CLI 工具，用于在多个 Claude Cod
 - **Tiered model**：profile 支持 `opusModel`/`sonnetModel`/`haikuModel`，Claude Code 运行时根据任务级别自动选用
 - **内置 MCP**：`mcc-websearch`（多源 web 搜索）和 `mcc-image-analysis`（图片/PDF 分析），自动安装到 instance 的 `.claude.json`
 - **外部 MCP registry**：通过 `mcc mcp add` 注册第三方 MCP server，API key 通过 `${MCC_PROVIDER_KEY:<providerId>}` 引用 `~/.mcc/mcp-config.json` 中的配置
-- **MCP provider 配置系统**：`~/.mcc/mcp-config.json` 统一管理 WebSearch（duckduckgo/exa/tavily/brave）和 ImageAnalysis（ali/kimi/minimax/deepseek）的 provider 开关和 API key
+- **MCP provider 配置系统**：`~/.mcc/mcp-config.json` 统一管理 WebSearch（duckduckgo/bocha/minimax/exa/tavily/brave）和 ImageAnalysis（ali/xiaomi/minimax/deepseek/kimi）的 provider 开关和 API key
 - **跨 instance 共享**：skills、commands、agents、plugins、settings.json 通过 symlink 在所有 instance 间共享（`~/.claude/` → `~/.mcc/instances/<name>/<item>`）
 - **Session 日志**：每次启动生成独立 session 日志（`~/.mcc/logs/<profile>/<sessionId>/mcc.log`），自动 logrotate
 - **Web Dashboard**：Express + 静态文件，提供 profile/MCP/模型配置的管理界面（`npm run dashboard`，端口 3000）

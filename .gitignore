@@ -27,9 +27,8 @@ yarn-error.log*
 dist/
 *.tsbuildinfo
 
-# Package lock files (use bun.lock only)
+# Package lock files (use pnpm-lock.yaml only — commit it for reproducible CI)
 yarn.lock
-pnpm-lock.yaml
 package-lock.json
 
 .claude/settings.local.json

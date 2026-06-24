@@ -24,6 +24,10 @@ import {
 const PROXY_ENTRY_CANDIDATES = [
   path.join(__dirname, 'proxy-entry.js'),
   path.join(__dirname, 'proxy-entry.cjs'),
+  // Dev fallback: when running via `tsx src/mcc.ts`, __dirname is src/proxy/
+  // and proxy-entry.js doesn't exist there. Fall back to the compiled dist version.
+  // Requires `pnpm build` to have run at least once.
+  path.join(__dirname, '..', '..', 'dist', 'proxy', 'proxy-entry.js'),
 ];
 
 function generateAuthToken(): string {
@@ -122,7 +126,7 @@ export async function startProxy(
     }
   }
   if (!entryScript) {
-    throw new Error('Proxy entry script not found. Run: npm run build');
+    throw new Error('Proxy entry script not found. Run: pnpm build');
   }
 
   // Spawn the proxy as a detached child process

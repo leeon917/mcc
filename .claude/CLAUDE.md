@@ -78,11 +78,11 @@ lib/
 ## 开发
 
 ```bash
-npm install
-npm run build        # tsc
-npm run dev -- help  # 直接跑 dist/
-npm run build:ui     # 构建 React Dashboard
-npm run dashboard    # 编译 + 启动 Dashboard（端口 3000）
+pnpm install
+pnpm build           # tsc
+pnpm mcc help        # 跑 CLI（pnpm 直接透传 args，无需 --）
+pnpm build:ui        # 构建 React Dashboard
+pnpm dashboard       # 编译 + 启动 Dashboard（端口 3000）
 ```
 
 ## CLI 命令
@@ -98,7 +98,7 @@ mcc mcp add --name <id> --command <cmd> [--display-name...] [--args...] [--provi
 mcc mcp remove <name>           # 删除外部 MCP
 mcc mcp enable <name> <profile> # 在指定 profile 启用外部 MCP
 mcc mcp disable <name> <profile> # 在指定 profile 禁用外部 MCP
-mcc dashboard                    # 启动 Web Dashboard（端口 3000）
+mcc config                       # 打开 Web 配置控制台（端口 3000）
 mcc help                         # 显示帮助
 ```
 

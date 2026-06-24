@@ -66,3 +66,24 @@
 **代价**: 不支持 OAuth provider（Codex、Kiro 等），不支持 `profile:model` 运行时路由。这些场景留给 CCS。
 
 ---
+
+## 2026-06-24 15:27:59 +00:00: Dashboard 视觉系统重做 + Templates 模块
+
+**背景**: Dashboard 默认 0 profile，用户首次打开不知道从哪开始；catalog 已经有 17 项 provider 模板但只通过 CLI 暴露。UI 是 shadcn 默认风格，识别度低、没有"挑一个就能跑"的入口。
+
+**关键选择**:
+
+1. **图标内嵌为 SVG React 组件**（`ProviderIcon` + `Ui`）而非 `/public/icons/*.svg` —— 离线可用、零网络依赖，`shape-rendering: crispEdges` 任意缩放保持像素锐利；同步从 catalog 删掉 `icon?: string` 字段（无消费方）。
+2. **三层 token 保留结构、只重写值**（primitive / semantic / components）—— shadcn 的 HSL 桥继续在，MCP 面板（WebSearchPanel 等）零改动也跟上新视觉。
+3. **`/api/profile-presets` 直接返回 `PROVIDER_PRESET_DEFINITIONS` 全量** —— 前端按 `featured / category` 分组即可，后端不掺合展示语义。
+4. **协议判定下沉到前端 `inferProtocol(preset)`**（看 baseUrl 是否含 `/anthropic`）—— CLI 仍以用户显式 `--protocol` 为准，前端只在"装模板"这条路径上给合理默认。
+
+**风格**: "Cupertino Arcade" —— Apple 软质感（圆角、分层阴影、留白）× 8-bit 像素（pixel logo、crispEdges、CRT 扫描线）× 6 色街机调板（tangerine / lagoon / leaf / hibiscus / sunshine / lilac，每个 provider 挑一色作为品牌色）。卡片采用 1.5px 墨边 + 4px 硬偏移阴影（System-7 / NeoBrutalist 感）。
+
+**代价**:
+- 字体走 Google Fonts CDN（Inter Tight / Plus Jakarta Sans / Silkscreen / VT323 / JetBrains Mono），离线场景回退到 `system-ui` —— 可接受，Dashboard 本就是联网工具。
+- 像素 logo 是品牌的"风格化呈现"而非 1:1 复刻 —— 若后续需要法务严谨可换 official SVG，但会牺牲整体调性的统一感。
+
+**影响范围**: 仅 Dashboard。`ui/src/**` + `src/dashboard-server.ts`（新增一个 GET 路由）+ `src/shared/provider-preset-catalog.ts`（删 `icon` 字段）。CLI、Profile 存储、MCP 注册表、proxy 全部零改动。
+
+---

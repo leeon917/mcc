@@ -44,6 +44,8 @@ const DEFAULT_CONFIG: McpConfig = {
     enabled: true,
     providers: {
       duckduckgo: { enabled: true },
+      bocha: { enabled: false, apiKey: '' },
+      minimax: { enabled: false, apiKey: '' },
       exa: { enabled: false, apiKey: '' },
       tavily: { enabled: false, apiKey: '' },
       brave: { enabled: false, apiKey: '' },
@@ -56,14 +58,14 @@ const DEFAULT_CONFIG: McpConfig = {
         enabled: false,
         baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         apiKey: '',
-        model: 'qwen-vl-plus',
+        model: 'qwen3-vl-plus',
         format: 'openai',
       },
-      kimi: {
+      xiaomi: {
         enabled: false,
-        baseUrl: 'https://api.moonshot.cn/v1',
+        baseUrl: 'https://api.xiaomimimo.com/v1',
         apiKey: '',
-        model: 'moonshot-v1-128k-vision-preview',
+        model: 'mimo-v2-omni',
         format: 'openai',
       },
       minimax: {
@@ -77,8 +79,15 @@ const DEFAULT_CONFIG: McpConfig = {
         enabled: false,
         baseUrl: 'https://api.deepseek.com/anthropic',
         apiKey: '',
-        model: 'deepseek-v4-pro[1m]',
+        model: 'deepseek-v4-pro',
         format: 'anthropic',
+      },
+      kimi: {
+        enabled: false,
+        baseUrl: 'https://api.moonshot.cn/v1',
+        apiKey: '',
+        model: 'moonshot-v1-128k-vision-preview',
+        format: 'openai',
       },
     },
   },
@@ -116,23 +125,41 @@ export function writeMcpConfig(config: McpConfig): void {
 export function getProviderPresets() {
   return {
     websearch: {
-      duckduckgo: { name: 'DuckDuckGo', needsApiKey: false, description: 'Free, no API key needed' },
-      exa: { name: 'Exa', needsApiKey: true, description: 'AI-powered search' },
-      tavily: { name: 'Tavily', needsApiKey: true, description: 'Search API for AI' },
-      brave: { name: 'Brave Search', needsApiKey: true, description: 'Privacy-focused search' },
+      duckduckgo: { name: 'DuckDuckGo', needsApiKey: false, description: '免费，无需 API Key' },
+      bocha: {
+        name: '博查 Bocha',
+        needsApiKey: true,
+        description: '国内中文搜索 API，open.bochaai.com',
+      },
+      minimax: {
+        name: 'MiniMax Search',
+        needsApiKey: true,
+        description: 'MiniMax Token/Coding Plan 联网检索（/v1/coding_plan/search）',
+      },
+      exa: { name: 'Exa', needsApiKey: true, description: '海外 AI 搜索' },
+      tavily: { name: 'Tavily', needsApiKey: true, description: '海外 AI 搜索 API' },
+      brave: { name: 'Brave Search', needsApiKey: true, description: '海外，注重隐私' },
     },
     imageAnalysis: {
       ali: {
-        name: '阿里 DashScope',
+        name: '阿里通义 (DashScope)',
         format: 'openai' as const,
         baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        models: ['qwen-vl-plus', 'qwen3-vl-flash', 'qwen-vl-max', 'qwen-vl-ocr', 'qvq-max', 'qvq-plus'],
+        models: [
+          'qwen3-vl-plus',
+          'qwen3-vl-flash',
+          'qwen-vl-max-latest',
+          'qwen-vl-plus',
+          'qwen-vl-ocr',
+          'qvq-max',
+          'qvq-plus',
+        ],
       },
-      kimi: {
-        name: 'Kimi (Moonshot)',
+      xiaomi: {
+        name: '小米 MiMo',
         format: 'openai' as const,
-        baseUrl: 'https://api.moonshot.cn/v1',
-        models: ['moonshot-v1-128k-vision-preview', 'moonshot-v1-32k-vision-preview'],
+        baseUrl: 'https://api.xiaomimimo.com/v1',
+        models: ['mimo-v2-omni', 'mimo-v2-pro'],
       },
       minimax: {
         name: 'MiniMax',
@@ -141,10 +168,16 @@ export function getProviderPresets() {
         models: ['MiniMax-VL-01'],
       },
       deepseek: {
-        name: 'DeepSeek',
+        name: 'DeepSeek (V4 起原生 vision)',
         format: 'anthropic' as const,
         baseUrl: 'https://api.deepseek.com/anthropic',
-        models: ['deepseek-v4-pro[1m]', 'deepseek-v4-pro'],
+        models: ['deepseek-v4-pro', 'deepseek-v4-flash'],
+      },
+      kimi: {
+        name: 'Kimi (Moonshot)',
+        format: 'openai' as const,
+        baseUrl: 'https://api.moonshot.cn/v1',
+        models: ['moonshot-v1-128k-vision-preview', 'moonshot-v1-32k-vision-preview'],
       },
     },
   };

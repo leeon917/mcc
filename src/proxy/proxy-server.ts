@@ -14,6 +14,7 @@ import { createRequire } from 'module';
 import * as path from 'path';
 import { resolveOpenAIChatCompletionsUrl } from './upstream-url';
 import { PROXY_SERVICE_NAME } from './proxy-paths';
+import { log, isDebugEnabled } from '../shared/logger';
 
 // Load compiled JS modules from CCS (copied to lib/proxy/)
 const libProxyDir = path.resolve(__dirname, '..', '..', 'lib', 'proxy');
@@ -114,11 +115,13 @@ function validateAuth(headers: http.IncomingHttpHeaders, expectedToken: string):
 
 function buildUpstreamRequest(rawBody: Record<string, unknown>, options: ProxyServerOptions): string {
   const transformer = new ProxyRequestTransformer();
-  const transformed = transformer.transform(rawBody);
+  const transformed = transformer.transform(rawBody) as Record<string, unknown>;
+  // Strip fields that standard OpenAI-compat providers don't accept
+  const { metadata: _metadata, ...rest } = transformed;
   const body = {
-    ...transformed,
-    model: (transformed as any).model || options.model || 'gpt-4',
-    stream: (transformed as any).stream === true,
+    ...rest,
+    model: rest.model || options.model || 'gpt-4',
+    stream: rest.stream === true,
   };
   return JSON.stringify(body);
 }
@@ -230,11 +233,23 @@ async function handleMessages(
     return;
   }
 
-  let timeoutMs = REQUEST_TIMEOUT_MS;
+  const timeoutMs = REQUEST_TIMEOUT_MS;
   try {
     const rawBody = await readJsonBody(req);
+
+    // Log request summary
+    const reqModel = typeof rawBody.model === 'string' ? rawBody.model : '(none)';
+    const msgCount = Array.isArray(rawBody.messages) ? rawBody.messages.length : 0;
+    const isStream = rawBody.stream === true;
+    log.info('PROXY', `→ /v1/messages model=${reqModel} msgs=${msgCount} stream=${isStream}`);
+
     const upstreamBody = buildUpstreamRequest(rawBody, options);
     const upstreamUrl = resolveOpenAIChatCompletionsUrl(options.baseUrl, options.chatCompletionsPath);
+
+    if (isDebugEnabled()) {
+      log.debug('PROXY', `upstream url: ${upstreamUrl}`);
+      log.debug('PROXY', `upstream body: ${upstreamBody.slice(0, 2000)}`);
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -260,8 +275,20 @@ async function handleMessages(
         signal: controller.signal,
       });
 
-      const response = await transformer.transform(upstreamResponse);
-      await pipeWebResponseToNode(response, res);
+      if (upstreamResponse.status >= 400) {
+        // Buffer error body for logging, then reconstruct for transformer
+        const errorText = await upstreamResponse.text();
+        log.error('PROXY', `← ${upstreamResponse.status} upstream error: ${errorText.slice(0, 500)}`);
+        const headers = new Headers();
+        upstreamResponse.headers.forEach((v, k) => headers.set(k, v));
+        const reconstructed = new Response(errorText, { status: upstreamResponse.status, headers });
+        const response = await transformer.transform(reconstructed);
+        await pipeWebResponseToNode(response, res);
+      } else {
+        log.info('PROXY', `← ${upstreamResponse.status} OK`);
+        const response = await transformer.transform(upstreamResponse);
+        await pipeWebResponseToNode(response, res);
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -273,6 +300,7 @@ async function handleMessages(
     const errorMessage = isAbort
       ? `The upstream provider did not respond within ${timeoutMs / 1000} seconds`
       : message;
+    log.error('PROXY', `request failed: ${message}`);
 
     await pipeWebResponseToNode(transformer.error(status, type, errorMessage), res);
   }

@@ -9,6 +9,9 @@
  */
 
 import { startProxyServer, type ProxyServerOptions } from './proxy-server';
+import { log, initFromEnv } from '../shared/logger';
+
+initFromEnv();
 
 function parseArgs(argv: string[]): ProxyServerOptions {
   let port = 43456;
@@ -48,14 +51,14 @@ function main(): void {
   const server = startProxyServer(options);
 
   server.once('error', (error) => {
-    console.error(`[MCC Proxy] Server error: ${error.message}`);
+    log.error('PROXY', `server error: ${error.message}`);
     process.exit(1);
   });
 
-  console.log(`[MCC Proxy] Listening on http://${options.host}:${options.port}`);
+  log.info('PROXY', `listening on http://${options.host}:${options.port} model=${options.model ?? '(default)'}`);
 
   const shutdown = () => {
-    console.log('[MCC Proxy] Shutting down...');
+    log.info('PROXY', 'shutting down');
     server.close();
   };
   process.on('SIGTERM', shutdown);

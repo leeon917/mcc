@@ -7,6 +7,7 @@
 
 import * as crypto from 'crypto';
 import * as http from 'http';
+import * as os from 'os';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import {
@@ -129,6 +130,12 @@ export async function startProxy(
     throw new Error('Proxy entry script not found. Run: pnpm build');
   }
 
+  // Compute proxy log dir: <mccHome>/logs/<profile>/proxy/<YYYY-MM-DD>
+  const mccHome = process.env.MCC_HOME ?? path.join(os.homedir(), '.mcc');
+  const now = new Date();
+  const proxyDate = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+  const proxyLogDir = path.join(mccHome, 'logs', profileName, 'proxy', proxyDate);
+
   // Spawn the proxy as a detached child process
   const child = spawn(process.execPath, [
     entryScript,
@@ -142,7 +149,12 @@ export async function startProxy(
   ], {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      MCC_CURRENT_PROFILE: profileName,
+      MCC_LOG_SESSION_ID: proxyDate,
+      MCC_LOG_DIR: proxyLogDir,
+    },
   });
   child.unref();
 

@@ -63,7 +63,7 @@ export async function cmdLaunch(args: string[]): Promise<void> {
   // Initialize logging session
   const sessionId = makeSessionId();
   const mccHome = process.env.MCC_HOME ?? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '~', '.mcc');
-  const logDir = path.join(mccHome, 'logs', profileName, sessionId);
+  const logDir = path.join(mccHome, 'logs', profileName, 'sessions', sessionId);
   init(sessionId, logDir);
   log.info('MCC', `Session starting: ${profileName} | log: ${logDir}`);
   console.log(`  ${pc.dim('session')}   ${pc.dim(sessionId)}`);

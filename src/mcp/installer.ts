@@ -97,6 +97,52 @@ export function readInstanceMcpConfig(instancePath: string): Record<string, McpS
   return {};
 }
 
+function getGlobalClaudeJsonPath(): string {
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? '~';
+  return path.join(home, '.claude.json');
+}
+
+interface RawMcpServerCfg {
+  type?: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Read user/global MCP servers from the real ~/.claude.json (NOT an mcc instance).
+ * This is where Claude Code stores user-scope (`-s user`) MCP servers. Returns {}
+ * if the file is missing or unparseable.
+ */
+function readGlobalMcpServers(): Record<string, RawMcpServerCfg> {
+  try {
+    const data = JSON.parse(fs.readFileSync(getGlobalClaudeJsonPath(), 'utf8'));
+    return (data.mcpServers as Record<string, RawMcpServerCfg>) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Normalize a raw ~/.claude.json MCP entry into the shape Claude Code expects. */
+function normalizeGlobalEntry(cfg: RawMcpServerCfg): McpServerConfig {
+  const transport = cfg.type ?? (cfg.url ? 'http' : 'stdio');
+  if (transport === 'http' || transport === 'sse') {
+    return {
+      type: transport,
+      url: cfg.url,
+      ...(cfg.headers && Object.keys(cfg.headers).length > 0 ? { headers: cfg.headers } : {}),
+    } as McpServerConfig;
+  }
+  return {
+    type: 'stdio',
+    command: cfg.command,
+    args: cfg.args ?? [],
+    env: cfg.env ?? {},
+  } as McpServerConfig;
+}
+
 function readClaudeJson(instancePath: string): Record<string, unknown> {
   const claudeJsonPath = path.join(instancePath, '.claude.json');
   if (fs.existsSync(claudeJsonPath)) {
@@ -217,6 +263,21 @@ export function syncInstanceMcpServers(
           env: resolveExternalServerEnv(external),
         };
       }
+    }
+  }
+
+  // Auto-mirror the user's global ~/.claude.json MCP servers (user-scope). This is
+  // a LIVE mirror, not a one-time import: add an MCP globally → it appears in every
+  // profile on next launch; remove it globally → it's gone next launch. mcc-managed
+  // servers (built-in + per-profile external) always win on name conflict; mcc
+  // builtins and CCS-owned (ccs-*) entries are skipped. Toggle via globalMcpSync.
+  if (readMcpConfig().globalMcpSync !== false) {
+    const builtinNames = new Set(BUILTIN_MCP_SERVERS.map((s) => s.name));
+    for (const [name, cfg] of Object.entries(readGlobalMcpServers())) {
+      if (name in mcpServers) continue; // mcc-managed wins
+      if (builtinNames.has(name)) continue; // never re-add mcc builtins
+      if (name.startsWith('ccs-')) continue; // CCS-owned, skip
+      mcpServers[name] = normalizeGlobalEntry(cfg);
     }
   }
 

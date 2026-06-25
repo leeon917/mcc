@@ -29,6 +29,12 @@ export interface ImageAnalysisProvider {
 }
 
 export interface McpConfig {
+  /**
+   * Auto-mirror the user's global ~/.claude.json MCP servers into every profile
+   * on each launch (added globally → appears everywhere next launch; removed →
+   * disappears). Default true. Set false to opt out and manage MCP per-profile.
+   */
+  globalMcpSync: boolean;
   websearch: {
     enabled: boolean;
     providers: Record<string, WebSearchProvider>;
@@ -40,6 +46,7 @@ export interface McpConfig {
 }
 
 const DEFAULT_CONFIG: McpConfig = {
+  globalMcpSync: true,
   websearch: {
     enabled: true,
     providers: {
@@ -109,6 +116,7 @@ export function readMcpConfig(): McpConfig {
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     // Merge with defaults to ensure all fields exist
     return {
+      globalMcpSync: raw.globalMcpSync ?? DEFAULT_CONFIG.globalMcpSync,
       websearch: {
         enabled: raw.websearch?.enabled ?? DEFAULT_CONFIG.websearch.enabled,
         providers: { ...DEFAULT_CONFIG.websearch.providers, ...raw.websearch?.providers },

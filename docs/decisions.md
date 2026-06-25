@@ -169,3 +169,53 @@
 **关键约束**：导入必须经 registry + `external-mcp-enabled.json`，**不能**手改 instance 的 `.claude.json`——因为 `launch.ts` 每次启动都调 `syncInstanceMcpServers` 整体覆写 `mcpServers`，手改会被抹掉。registry 路径下每次 sync 都重新写回，故能跨重启存活。
 
 **部署边界**：http MCP 的正确 emit 依赖新版 sync 代码——旧二进制（≤0.2.0）会把 http server 当 stdio 输出成 `{command:undefined}` 而坏掉；stdio server（如 mcp-ssh / js-reverse）不受影响。
+
+## 2026-06-25 09:12:55 +00:00: Proxy 层视觉注入——让纯文字上游"看见"粘贴的图
+
+**决策**：在 OpenAI 翻译 proxy 的 `/v1/messages` 处理链里，转发上游**之前**拦截 inline base64 `image` block，送 `mcp-config.json` 配置的视觉 provider（imageAnalysis）转成文字描述、原地替换为 `text` block，再走正常翻译转发。新增 `src/proxy/vision-injection.ts`，接进 `src/proxy/proxy-server.ts` 的 `handleMessages`。
+
+**为什么**：内置的 `mcc-image-analysis` MCP 工具只在「文件路径 + 工具调用」时触发；用户**剪贴板粘贴**的图是 Claude Code 直接塞进请求体的 inline image block，不经过任何工具调用，**proxy 是请求路径上唯一能拦截它的点**。纯文字上游（如 glm-5.2）收到 image block 会忽略或 400。视觉注入把"文件→MCP 工具"那条已有能力补到粘贴这条路上。
+
+**关键设计**：
+- **内容 SHA-256 缓存**（上限 200 条）：CC 每轮重发完整历史，同一张图会在后续每个请求里复现——不缓存就每轮重复送审、烧钱；缓存后同图只送审一次。
+- **provider fallback 链**：多 provider 按 mcp-config 顺序逐个试（沿用 `image-analysis-runtime.cjs` 的 fallback 思路）。
+- **优雅降级**：全部 provider 失败时替换为占位文字「[Pasted image could not be analyzed…]」，**不阻断对话**。
+- **零开销快路径**：`hasImageBlocks` 先探测，无图请求完全不读 config、不进注入逻辑。
+- 视觉 provider 用自己的 key（mcp-config 里的，如 Kimi），**不**走 proxy 的上游 key。
+
+**代价 / 边界**：
+- **只覆盖 openai 协议**（走 proxy 的 profile）。anthropic 直连无 proxy，粘贴的图直送上游，纯文字上游仍无解——将来「统一本地 relay」（所有 profile 恒过中继 + 共享视觉注入中间件）才能抹平协议差异。
+- **scope 仅 base64 `image`**：`document`（PDF）与 `url` image 暂不碰（PDF 同理可在 relay 抽块转文字，留作后续）。音频/视频不在此链路（Anthropic 原生也无对应 block）。
+- 粘贴改前端这类视觉细节强相关的活，是「视觉模型看图转文字→编码模型据文字改码」两段接力，**编码质量被视觉模型的描述质量卡上限**（不同于 Claude 原生「同一模型看图+写码」）。
+- **部署边界**：proxy 是常驻 daemon，`startProxy` 仅在 path/effort 变化时重启——升级后需重启 proxy 才加载新代码。
+
+## 2026-06-25 09:50:31 +00:00: Proxy 增加 usage / cache 命中日志
+
+**决策**：openai 翻译 proxy 的 `/v1/messages` 成功响应路径上，① 流式请求自动注入 `stream_options:{include_usage:true}`，让上游在流末尾回 usage chunk；② 用 `ReadableStream.tee()` 非破坏性旁路上游响应体，解析出 token 用量打一行 `USAGE` 日志（含 cache hit/miss/命中率），归一 DeepSeek（`prompt_cache_hit_tokens`/`prompt_cache_miss_tokens`）与 OpenAI 风格（`prompt_tokens_details.cached_tokens`）两种 cache 字段。新增逻辑全在 `src/proxy/proxy-server.ts`，**不动 lib/ 的 CCS 编译产物**。
+
+**为什么**：用户 DeepSeek 月账单 ¥61.52 偏高，官网整月汇总显示 cache 命中率仅 21~35%（flash 21.2% / pro 34.6%），远低于 agentic 编码应有的 70~90%。怀疑是 proxy 把可缓存前缀打散，但**之前 proxy 完全不记 usage**，无法逐请求验证。本改动把「命中率到底多少」从猜变成可观测——且对任何 openai profile 都生效，不再依赖各家官网给不给这个数。
+
+**关键设计**：
+- **stream-parser 本就兼容** usage-only / 空 choices 的尾 chunk（[stream-parser.js:49](lib/proxy/glmt/pipeline/stream-parser.js) `if (!choice) return events`），故注入 `include_usage` 不会污染发给 Claude Code 的流。
+- **tee 旁路**：一支流原样进 transformer，另一支单独解析 usage；抓取异常一律吞掉，**绝不影响客户端主链路**。tee 两支都被消费完，无背压泄漏。
+- 仅 status<400 成功响应才旁路；错误响应走原 reconstruct 路径不变。
+
+**代价 / 边界**：
+- **风险**：`stream_options.include_usage` 虽是 OpenAI 标准，个别上游（GLM bigmodel / Qwen dashscope 待验证）可能对未知字段报 400。届时按 host 做白名单 gate。
+- provider 不回 cache 字段时日志显示 `rate=n/a`——意味着「无前缀缓存」或「不上报」，二者从日志无法区分。
+- **部署边界**：proxy 是常驻 daemon，升级后需重启 proxy（path/effort 未变不会自动重启）才加载新代码。
+
+## 2026-06-25 09:52:50 +00:00: instance settings.json 从「软链接共享」改为「每次启动生成（全局 settings + per-profile auth env 块）」+ 全局 MCP 自动镜像
+
+**背景**: 交互式 Claude Code 只认 `settings.json` `env` 块里的 `ANTHROPIC_AUTH_TOKEN`，纯进程 env 传入的被忽略 → TUI 强制 `/login`（根因详见 lessons 同日条目）。原先 `instances/<p>/settings.json` 软链到 `~/.claude/settings.json`，无法注入 per-profile auth，导致每个 openai profile 交互式启动都要登录。
+
+**决策**:
+1. `shared-manager` 的 `SHARED_ITEMS` **移除 settings.json**（skills/commands/agents/plugins 仍软链共享）；新增 `writeInstanceSettings(instancePath, authEnv)`：读全局 `~/.claude/settings.json` 作基底 + 叠加 `{ANTHROPIC_BASE_URL/AUTH_TOKEN/MODEL/三档 model}` 的 `env` 块，写成 instance 自己的**真文件**。`launch.ts` 在 proxy 起好后调用，**每次启动重新生成**。
+2. **全局 MCP 自动镜像**: `syncInstanceMcpServers` 每次启动把全局 `~/.claude.json` 的 user-scope `mcpServers` **实时镜像**进 instance（区别于 `import-global` 的一次性落库——这是 live mirror，全局删了下次启动即消失）；跳过 `mcc-*` 内置与 `ccs-*`，mcc 管理的同名优先；开关 `mcpConfig.globalMcpSync` 默认 true。
+
+**结果**: 各 profile 体验统一——换 model 不再各自要登录；全局 settings 仍是唯一真相源（每次启动并入）；全局加一个 MCP 自动铺到所有 profile；项目级 `.mcp.json` 本就被 claude 按 cwd 自动加载、无需 mcc 介入。
+
+**代价 / 边界**:
+- instance `settings.json` 现为生成产物——**要改配置改全局 `~/.claude/settings.json`**，别改 instance 那份（每次启动被覆盖重写）。
+- auth `env` 块里的 proxy token 随 proxy 重启变化，靠每次启动重生成保持新鲜。
+- 部署边界：需用含本改动的版本启动一次才生成新 settings.json；旧的软链接会被 `writeInstanceSettings` 的 `removeExisting` 替换成真文件。

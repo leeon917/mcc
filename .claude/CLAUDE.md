@@ -9,7 +9,8 @@ MCC 是一个轻量级多账号切换工具，用于在多个 Claude Code 账号
 - 直接 API 模式和 OpenAI 兼容模式（自动翻译 proxy）
 - MCP 工具支持（WebSearch、ImageAnalysis）
 - 每个 profile 独立的 `CLAUDE_CONFIG_DIR` 隔离
-- 跨 profile 共享 skills/commands/agents/plugins/settings
+- 跨 profile 共享 skills/commands/agents/plugins（软链接）；settings.json **每次启动从全局重新生成**（= 全局 settings + 该 profile 的 auth `env` 块，非软链接）
+- 全局 `~/.claude.json` 的 user-scope MCP **自动镜像**进每个 profile（开关 `globalMcpSync`，默认开）
 
 ## 设计原则
 
@@ -25,7 +26,7 @@ src/
 ├── accounts/
 │   ├── store.ts                # Profile 元数据存储
 │   ├── instance-manager.ts     # CLAUDE_CONFIG_DIR 隔离
-│   └── shared-manager.ts       # 跨 instance 共享目录（symlink）
+│   └── shared-manager.ts       # 跨 instance 共享目录（symlink）+ 生成 instance settings.json（注入 auth env）
 ├── core/
 │   └── model-router.ts         # Profile env 构建 + tiered model
 ├── mcp/
@@ -38,6 +39,7 @@ src/
 │   ├── proxy-daemon.ts         # Proxy 生命周期管理
 │   ├── proxy-entry.ts          # Proxy 进程入口
 │   ├── proxy-paths.ts          # PID/session 文件路径
+│   ├── vision-injection.ts     # 粘贴图 → 视觉模型转文字注入（纯文字上游可"看图"）
 │   └── upstream-url.ts         # upstream URL 解析
 ├── dashboard-server.ts          # Express Dashboard API
 └── shared/
@@ -93,6 +95,9 @@ cat ~/.mcc/logs/<profile>/proxy/$(ls -t ~/.mcc/logs/<profile>/proxy/ | head -1)/
 
 # 开 debug 级别，看发给上游的完整请求体
 MCC_LOG_LEVEL=debug mcc <profile>
+
+# 看 openai proxy 的 token 用量 + 缓存命中率（逐请求，含 cache hit/miss/rate）
+grep USAGE ~/.mcc/logs/<profile>/proxy/$(ls -t ~/.mcc/logs/<profile>/proxy/ | head -1)/mcc.log
 ```
 
 ## 开发
@@ -154,6 +159,8 @@ mcc help                         # 显示帮助
 
 OpenAI 兼容 profile 启动时自动在 `127.0.0.1:43456-43555` 范围内启动一个 OpenAI→Anthropic 翻译 proxy，Claude Code 的请求经过本地 proxy 转发给 upstream OpenAI-compatible API。
 
+**视觉注入**：openai proxy 在转发前会拦截剪贴板粘贴的 inline `image` block，送 `mcp-config.json` 配置的视觉 provider 转成文字描述再替换（`vision-injection.ts`），让纯文字上游（如 glm-5.2）也能"看见"粘贴的图。按内容 hash 缓存、provider fallback、失败降级为占位文字。仅 base64 image；PDF/url 暂不处理。anthropic 直连无 proxy，不覆盖此能力。
+
 ### 思考模式（reasoningEffort）
 
 每个 profile 可设 `reasoningEffort`（`off|low|medium|high|max`，缺省 `high`）。**思考以 Claude Code 为真相源**——用户的 `/effort` + Tab 调档自动映射到上游；`reasoningEffort` 只是 CC 没给信号时的兜底默认，非必要不用配。
@@ -169,6 +176,8 @@ OpenAI 兼容 profile 启动时自动在 `127.0.0.1:43456-43555` 范围内启动
 - `mcc-image-analysis` - 图片分析（OpenAI / Anthropic 两种 vision 格式，provider 在 mcp-config.json 配置）
 
 外部 MCP 通过 `mcc mcp add` 注册，支持 `${MCC_PROVIDER_KEY:<providerId>}` 引用 `mcp-config.json` 里配置的 API key。
+
+全局 `~/.claude.json` 的 user-scope MCP 会在**每次启动时自动镜像**进各 profile 的 instance（live mirror：全局加即现、删即消；跳过 `mcc-*`/`ccs-*`，mcc 管理的同名优先）。开关 `mcp-config.json` 的 `globalMcpSync`（默认 `true`）。这跟 `mcc mcp import-global`（一次性落 registry，删了仍留）是两条路。项目级 `.mcp.json` 由 Claude Code 按 cwd 自动加载，无需 mcc 介入。
 
 MCP provider 配置在 `~/.mcc/mcp-config.json`。
 

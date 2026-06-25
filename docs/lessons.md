@@ -130,3 +130,30 @@
 3. **openai profile 还把识图指错地方**：`launch.ts` 对 openai 协议把 `MCC_IMAGE_ANALYSIS_RUNTIME_BASE_URL` 覆写成本地翻译 proxy（指向 chat 文本模型）。旧 runtime 只认这个 legacy 变量，于是 qwen/glm 识图被发去文本模型。0.2.0 runtime 因优先走 PROVIDERS 链能绕开，但旧版（0.1.9）绕不开。
 
 **教训**: (1) 识图是否可用要分「后端连通」与「调用触发」两层查，先确认是哪一层——别一上来就怀疑 key/endpoint。(2) 一个能力靠「上游模型自愿调 MCP 工具」实现时，本质不可靠；要么注入系统提示强引导，要么上 hook 拦截，inline 粘贴图还得在 proxy 翻译层把 image block 拆出来转交 vision provider。
+
+## 2026-06-25 09:52:50 +00:00: 交互式 Claude Code 不认进程 env 里的 ANTHROPIC_AUTH_TOKEN，只认 settings.json 的 env 块
+
+**现象**: openai profile（glm）启动后交互式 TUI 报 "Not logged in · Please run /login"，`/status` 里 `Auth token: none`、无 base URL 行；但 `claude -p` 用**完全相同的 env、同一个 shell** 能正常请求拿到回复（PONG）。VS Code 终端一度正常（`/status` 显示 `Auth token: ANTHROPIC_AUTH_TOKEN`），后来也变 login required。
+
+**排查（吃了很久，全是死胡同）**: 逐项排除——① 终端代理 `HTTP_PROXY/HTTPS_PROXY=127.0.0.1:7890` 劫持 localhost？`NO_PROXY` 已含 127.0.0.1，`Invoke-WebRequest` / `claude -p` 打本地 proxy 均 200；② proxy daemon 假死？端口在听、`claude -p` 当场 PONG；③ mcc spawn 丢 env？复现 `{...process.env, ...env}` spawn，子进程完整收到 token；④ 登录态写坏？instance 无 `.credentials.json`、`.claude.json` 无 oauthAccount/pendingLogin、Windows 凭据管理器无条目。全部排除后定性：纯粹是 Claude Code **交互式 vs `-p`** 的认证差异。
+
+**根因**: 交互式 Claude Code **只信任 `settings.json` 的 `env` 块里声明的 `ANTHROPIC_AUTH_TOKEN`**；纯靠 spawn 进程环境变量传入的不被信任 → 降级要求 `/login`。`-p`（非交互 / SDK）两种来源都认。这就是为什么 mcc（之前只用 spawn env 传 auth）的交互式一直要登录、而所有 `claude -p` 测试都成功。
+
+**修复**: launch 时给每个 instance 写**自己的** `settings.json`（= 全局 settings 作基底 + 该 profile 的 `ANTHROPIC_BASE_URL/AUTH_TOKEN/model` 注进 `env` 块），不再把 settings.json 走共享软链接。隔离测试目录实测：写了 env 块的 config dir，交互式 `/status` 立刻 `Auth token: ANTHROPIC_AUTH_TOKEN`、免登录。详见 decisions 同日条目。
+
+**教训**: 给第三方 provider 配**交互式** Claude Code，auth 必须落到 `settings.json` 的 `env` 块，不能只靠启动时的进程环境变量——`claude -p` 能通**不代表**交互式能通。验证第三方接入务必用交互式 `/status` 看 Auth token 行，别只信 `-p`。
+
+## 2026-06-25 10:00:41 +00:00: proxy 不破坏前缀缓存——低命中是工作负载问题，不是 proxy 的锅
+
+**现象**: 用户 DeepSeek 月账单偏高（¥61.52），官网汇总 cache 命中率仅 21~35%（flash 21.2% / pro 34.6%），远低于 agentic 编码应有的 70~90%。第一反应怀疑 openai 翻译 proxy 转发时把可缓存前缀打散，导致缓存失效。
+
+**排查**: 给 proxy 加 usage/cache 日志（注入 `stream_options.include_usage` + `tee()` 旁路解析 usage chunk，见 decisions 同日条目）后，本地起 proxy 指向 GLM，同一长 system 前缀（~1700 token）连发两次：
+- req1（冷）: cache hit=0 / miss=1702 / **rate 0.0%**
+- req2（热，1.5s 后）: cache hit=1664 / miss=38 / **rate 97.8%**
+
+**结论 / 教训**:
+1. **proxy 前缀稳定，猜想推翻**——同前缀第二次发命中 97.8%，说明翻译转发出去的字节足够稳定，缓存能拉满。低命中不是 proxy 打散前缀造成的。
+2. **DeepSeek 那条路压根没经 proxy**：用户 deepseek profile 是 `protocol: anthropic` 直连 `api.deepseek.com/anthropic`，proxy 不在路径上，usage 日志也抓不到它（要么看官网，要么把 deepseek 改 openai 协议才走 proxy）。
+3. **真因是工作负载**：21~35% 低命中 = flash 大量「无共享前缀的短子任务」天生不可缓存 + 每次 `mcc launch` 冷启动、会话间隔超 provider TTL 缓存过期。省钱要从负载下手（降 effort、少开子任务、会话别拖碎），不是改 proxy。
+4. **附带验明**：GLM（bigmodel）接受 `stream_options.include_usage`，不报 400；之前标的兼容性风险对 GLM 是虚惊。
+5. 排查任意 openai profile 命中率：`grep USAGE` proxy 日志（逐请求）。

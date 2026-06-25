@@ -39,7 +39,9 @@ mcc config                       # 打开 Web 配置控制台
 - **思考模式**：profile 支持 `reasoningEffort`，默认开启思考；强度以 Claude Code 自身的 `/effort`/Tab 为准并自动映射到各 provider，`reasoningEffort` 仅作兜底默认
 - **Tiered model**：profile 支持 `opusModel`/`sonnetModel`/`haikuModel` 三级模型切换
 - **内置 MCP**：`mcc-websearch`（多源搜索）和 `mcc-image-analysis`（图片/PDF 分析）
+- **粘贴图识别**：OpenAI 兼容 profile 下，直接在输入框粘贴的图片会经本地 proxy 送视觉模型转成文字，让纯文字模型也能"看图"（视觉 provider 在 `mcp-config.json` 配置）
 - **外部 MCP**：通过 `mcc mcp add` 注册第三方 MCP server，支持 `${MCC_PROVIDER_KEY:<providerId>}` 引用 provider API key
+- **全局 MCP 自动同步**：全局 `~/.claude.json` 的 user-scope MCP 每次启动自动镜像进每个 profile（加即现、删即消；跳过 `mcc-*`/`ccs-*`），开关 `globalMcpSync` 默认开；项目级 `.mcp.json` 由 Claude Code 自动加载
 - **Dashboard**：`mcc config` 打开 Web 配置控制台（http://localhost:3000）
 
 ## 添加一个 profile
@@ -80,7 +82,7 @@ src/
 ├── accounts/
 │   ├── store.ts                # Profile 元数据
 │   ├── instance-manager.ts     # CLAUDE_CONFIG_DIR 隔离
-│   └── shared-manager.ts       # 跨 instance 共享目录
+│   └── shared-manager.ts       # 跨 instance 共享目录 + 生成 instance settings.json（注入 auth env）
 ├── core/model-router.ts        # Profile env 构建
 ├── mcp/
 │   ├── registry.ts             # 内置 MCP 注册表

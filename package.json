@@ -1,6 +1,6 @@
 {
   "name": "@hileeon/mcc",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "My Claude Code - Multi-provider account and model switching for Claude Code",
   "license": "MIT",
   "author": "Leeon",

@@ -19,12 +19,18 @@ interface SharedItem {
   type: 'directory' | 'file';
 }
 
+// NOTE: settings.json is intentionally NOT shared via symlink. Each instance
+// gets its OWN real settings.json (see writeInstanceSettings) so we can inject a
+// per-profile `env` block with ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN. Interactive
+// Claude Code only trusts auth declared in settings.json's `env` block — auth passed
+// purely via the spawned process env is ignored and triggers a `/login` prompt. The
+// instance settings still mirror the global file's contents (regenerated each launch),
+// so skills/hooks/theme stay consistent across profiles.
 const SHARED_ITEMS: readonly SharedItem[] = [
   { name: 'commands', type: 'directory' },
   { name: 'skills', type: 'directory' },
   { name: 'agents', type: 'directory' },
   { name: 'plugins', type: 'directory' },
-  { name: 'settings.json', type: 'file' },
 ];
 
 export class SharedManager {
@@ -84,6 +90,36 @@ export class SharedManager {
     if (linked.length > 0) {
       console.log(`  ${pc.dim('shared')}   ${pc.dim(linked.join(', '))}`);
     }
+  }
+
+  /**
+   * Write the instance's own settings.json = global settings + a per-profile
+   * `env` block carrying auth (ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/model).
+   *
+   * Why a real file instead of the old symlink: interactive Claude Code only
+   * honors ANTHROPIC_AUTH_TOKEN when it is declared in settings.json's `env`
+   * block. Auth passed solely through the spawned process env is treated as
+   * untrusted and the TUI falls back to "Not logged in · Please run /login"
+   * (whereas `claude -p` accepts the process env directly). Regenerated on every
+   * launch so it always mirrors the current global settings and proxy token.
+   */
+  writeInstanceSettings(instancePath: string, authEnv: Record<string, string>): void {
+    const globalSettingsPath = path.join(this.claudeDir, 'settings.json');
+    let base: Record<string, unknown> = {};
+    if (this.pathExists(globalSettingsPath)) {
+      try {
+        base = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf8')) as Record<string, unknown>;
+      } catch {
+        base = {};
+      }
+    }
+    const existingEnv = (base.env && typeof base.env === 'object') ? (base.env as Record<string, string>) : {};
+    const merged = { ...base, env: { ...existingEnv, ...authEnv } };
+
+    const target = path.join(instancePath, 'settings.json');
+    // Older mcc versions symlinked this file — replace any symlink/file with a real one.
+    this.removeExisting(target, 'file');
+    fs.writeFileSync(target, JSON.stringify(merged, null, 2), 'utf8');
   }
 
   /**

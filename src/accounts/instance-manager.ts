@@ -31,6 +31,14 @@ export class MCCInstanceManager {
     return instancePath;
   }
 
+  /**
+   * Write the instance's own settings.json with a per-profile auth `env` block.
+   * Must run on every launch (after the proxy is up) so the TUI trusts the token.
+   */
+  writeInstanceSettings(instancePath: string, authEnv: Record<string, string>): void {
+    sharedManager.writeInstanceSettings(instancePath, authEnv);
+  }
+
   getInstancePath(accountName: string): string {
     const safeName = accountName.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase();
     return path.join(getInstancesDir(), safeName);

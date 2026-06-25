@@ -128,6 +128,21 @@ export async function cmdLaunch(args: string[]): Promise<void> {
     }
   }
 
+  // Persist auth into the instance's own settings.json `env` block. Interactive
+  // Claude Code only trusts ANTHROPIC_AUTH_TOKEN declared here — passing it purely
+  // via the spawned process env makes the TUI fall back to "Please run /login"
+  // (while `claude -p` accepts the process env). Done after the proxy block so the
+  // base URL / auth token reflect the (possibly proxied) final values.
+  instanceMgr.writeInstanceSettings(instancePath, {
+    ANTHROPIC_BASE_URL: env.ANTHROPIC_BASE_URL,
+    ANTHROPIC_AUTH_TOKEN: env.ANTHROPIC_AUTH_TOKEN,
+    ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: env.ANTHROPIC_DEFAULT_OPUS_MODEL,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: env.ANTHROPIC_DEFAULT_SONNET_MODEL,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+    ANTHROPIC_SMALL_FAST_MODEL: env.ANTHROPIC_SMALL_FAST_MODEL,
+  });
+
   console.log(`\n  ${pc.green('✓')} ${pc.bold('launching Claude Code')}`);
   const remainingArgs = args.slice(1);
   const child = spawn('claude', remainingArgs, {

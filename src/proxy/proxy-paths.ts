@@ -35,6 +35,11 @@ export interface ProxySession {
   startedAt: string;
   proxyChatCompletionsPath?: string;
   reasoningEffort?: string;
+  // mcc version that spawned this proxy. Used to auto-restart a stale daemon
+  // after an upgrade: the long-lived proxy keeps running OLD code until the
+  // version recorded here differs from the launching CLI's version. Absent on
+  // sessions written by mcc ≤0.4.0 (treated as "old" ⇒ triggers a restart).
+  mccVersion?: string;
 }
 
 function ensureProxyDir(): void {

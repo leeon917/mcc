@@ -35,6 +35,19 @@ function generateAuthToken(): string {
   return crypto.randomBytes(24).toString('hex');
 }
 
+/**
+ * Current mcc version, read from the package's own package.json. Compiled
+ * proxy-daemon lives at dist/proxy/, so package root is two levels up (same in
+ * dev where __dirname is src/proxy/). Falls back to 'unknown' if unreadable.
+ */
+function getMccVersion(): string {
+  try {
+    return (require(path.join(__dirname, '..', '..', 'package.json')) as { version: string }).version;
+  } catch {
+    return 'unknown';
+  }
+}
+
 async function isProxyRunning(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.request(
@@ -96,18 +109,27 @@ export async function startProxy(
   proxyChatCompletionsPath?: string,
   reasoningEffort?: string,
 ): Promise<ProxyStartResult> {
+  const currentVersion = getMccVersion();
+
   // Check if already running
   const existingSession = readProxySession(profileName);
   if (existingSession && await isProxyRunning(existingSession.port)) {
-    // If the caller provided a different proxyChatCompletionsPath or thinking
-    // intensity, the existing proxy is stale — stop it and restart fresh.
+    // The proxy is a detached, long-lived daemon that survives `mcc` exits, so a
+    // running instance keeps executing the code it was spawned with. Reuse it
+    // ONLY when nothing that affects its behavior changed; otherwise stop it so
+    // the block below respawns from current code/config:
+    //   - path / effort changed  → request shape differs
+    //   - mcc version changed     → an upgrade landed new proxy code on disk that
+    //     the running daemon hasn't picked up (e.g. vision injection in 0.4.0).
+    //     A version-less session (mcc ≤0.4.0) compares unequal ⇒ also restarts.
     const pathChanged =
       proxyChatCompletionsPath !== undefined &&
       proxyChatCompletionsPath !== existingSession.proxyChatCompletionsPath;
     const effortChanged =
       reasoningEffort !== undefined &&
       reasoningEffort !== existingSession.reasoningEffort;
-    if (pathChanged || effortChanged) {
+    const versionChanged = existingSession.mccVersion !== currentVersion;
+    if (pathChanged || effortChanged || versionChanged) {
       await stopProxy(profileName);
     } else {
       return { port: existingSession.port, authToken: existingSession.authToken };
@@ -180,6 +202,7 @@ export async function startProxy(
     baseUrl,
     proxyChatCompletionsPath,
     reasoningEffort,
+    mccVersion: currentVersion,
     startedAt: new Date().toISOString(),
   };
   writeProxySession(session);

@@ -14,6 +14,7 @@ import { createRequire } from 'module';
 import * as path from 'path';
 import { resolveOpenAIChatCompletionsUrl } from './upstream-url';
 import { PROXY_SERVICE_NAME } from './proxy-paths';
+import { hasImageBlocks, injectVision } from './vision-injection';
 import { log, isDebugEnabled } from '../shared/logger';
 
 // Load compiled JS modules from CCS (copied to lib/proxy/)
@@ -204,13 +205,119 @@ function buildUpstreamRequest(rawBody: Record<string, unknown>, options: ProxySe
     rest.tool_choice = 'auto';
   }
 
+  const streaming = rest.stream === true;
   const body = {
     ...rest,
     ...reasoning,
     model: rest.model || options.model || 'gpt-4',
-    stream: rest.stream === true,
+    stream: streaming,
+    // Ask the upstream for a trailing usage chunk (token counts + cache
+    // hit/miss) so we can log real cost/cache stats. OpenAI-standard; the SSE
+    // stream-parser already tolerates the usage-only/empty-choices final chunk.
+    ...(streaming ? { stream_options: { include_usage: true } } : {}),
   };
   return JSON.stringify(body);
+}
+
+// --- Usage logging (cache hit/miss diagnostics) ---
+
+function toNum(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * Log token usage for one upstream response, normalizing the cache-hit fields
+ * across provider dialects:
+ *   - DeepSeek: prompt_cache_hit_tokens / prompt_cache_miss_tokens
+ *   - OpenAI-style: prompt_tokens_details.cached_tokens (miss = prompt - hit)
+ * Providers without prefix caching simply report no hit field ⇒ rate "n/a".
+ */
+function logUsage(model: string, usage: Record<string, unknown>): void {
+  const prompt = toNum(usage.prompt_tokens) ?? toNum(usage.input_tokens);
+  const completion = toNum(usage.completion_tokens) ?? toNum(usage.output_tokens);
+  const details = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+  const hit = toNum(usage.prompt_cache_hit_tokens) ?? toNum(details?.cached_tokens);
+  let miss = toNum(usage.prompt_cache_miss_tokens);
+  if (miss === undefined && prompt !== undefined && hit !== undefined) miss = prompt - hit;
+  const rate = hit !== undefined && prompt ? `${((hit / prompt) * 100).toFixed(1)}%` : 'n/a';
+  log.info(
+    'USAGE',
+    `model=${model} prompt=${prompt ?? '?'} (cache hit=${hit ?? '?'} miss=${miss ?? '?'} rate=${rate}) completion=${completion ?? '?'}`,
+  );
+}
+
+function usageFromSseLine(line: string): Record<string, unknown> | null {
+  if (!line.startsWith('data:')) return null;
+  const payload = line.slice(5).trim();
+  if (!payload || payload === '[DONE]') return null;
+  try {
+    const obj = JSON.parse(payload) as Record<string, unknown>;
+    return obj && typeof obj.usage === 'object' && obj.usage !== null
+      ? (obj.usage as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function consumeUsage(
+  body: ReadableStream<Uint8Array>,
+  model: string,
+  isStream: boolean,
+): Promise<void> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let usage: Record<string, unknown> | null = null;
+  try {
+    if (isStream) {
+      let pending = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        pending += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = pending.indexOf('\n')) >= 0) {
+          const found = usageFromSseLine(pending.slice(0, nl).trim());
+          if (found) usage = found;
+          pending = pending.slice(nl + 1);
+        }
+      }
+      const tail = usageFromSseLine(pending.trim());
+      if (tail) usage = tail;
+    } else {
+      let text = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+      }
+      try {
+        const obj = JSON.parse(text) as Record<string, unknown>;
+        if (obj && typeof obj.usage === 'object' && obj.usage !== null) {
+          usage = obj.usage as Record<string, unknown>;
+        }
+      } catch {
+        /* not JSON — nothing to log */
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (usage) logUsage(model, usage);
+}
+
+/**
+ * Non-destructively tap the upstream response to log token usage (incl. cache
+ * hit/miss) without disturbing the bytes Claude Code receives. Tees the body:
+ * one branch flows to the transformer untouched, the other is parsed for the
+ * usage chunk. Best-effort — any tap error is swallowed so it can never break
+ * the client-facing path.
+ */
+function tapUsageForLogging(upstream: Response, model: string, isStream: boolean): Response {
+  if (!upstream.body) return upstream;
+  const [forClient, forTap] = upstream.body.tee();
+  void consumeUsage(forTap, model, isStream).catch(() => {});
+  return new Response(forClient, { status: upstream.status, headers: upstream.headers });
 }
 
 // --- Server ---
@@ -330,6 +437,21 @@ async function handleMessages(
     const isStream = rawBody.stream === true;
     log.info('PROXY', `→ /v1/messages model=${reqModel} msgs=${msgCount} stream=${isStream}`);
 
+    // Vision injection: a clipboard-pasted image arrives as an inline base64
+    // image block. A text-only upstream can't use it, so swap each image for a
+    // vision-model text description before translation. No-op (and zero cost)
+    // when no image is present; degrades to a placeholder on provider failure.
+    if (hasImageBlocks(rawBody)) {
+      try {
+        const { injected } = await injectVision(rawBody);
+        if (injected > 0) {
+          log.info('PROXY', `vision injection: replaced ${injected} image block(s) with text`);
+        }
+      } catch (e) {
+        log.warn('PROXY', `vision injection failed: ${(e as Error).message}`);
+      }
+    }
+
     const upstreamBody = buildUpstreamRequest(rawBody, options);
     const upstreamUrl = resolveOpenAIChatCompletionsUrl(options.baseUrl, options.chatCompletionsPath);
 
@@ -373,7 +495,8 @@ async function handleMessages(
         await pipeWebResponseToNode(response, res);
       } else {
         log.info('PROXY', `← ${upstreamResponse.status} OK`);
-        const response = await transformer.transform(upstreamResponse);
+        const tapped = tapUsageForLogging(upstreamResponse, reqModel, isStream);
+        const response = await transformer.transform(tapped);
         await pipeWebResponseToNode(response, res);
       }
     } finally {
